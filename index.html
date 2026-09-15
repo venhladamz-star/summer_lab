@@ -997,10 +997,15 @@ async function connectFirebase() {
 }
 
 /* ================================================================
-   6. GHI DỮ LIỆU LÊN FIREBASE
+   6. GHI DỮ LIỆU LÊN FIREBASE (ĐÃ TỐI ƯU OPTIMISTIC UPDATE)
    ================================================================ */
 async function writeControl(key, value) {
   state.control[key] = value;
+
+  // Cập nhật "ảo" ngay lập tức để UI phản hồi không có độ trễ
+  if (key === "pump_cmd") state.status.pump_running = value;
+  if (key === "mode_cmd") state.status.current_mode = value;
+  if (key === "emergency_cmd") state.status.emergency_lock = value;
 
   if (state.source === "live" && fb) {
     try {
@@ -1012,6 +1017,8 @@ async function writeControl(key, value) {
   } else {
     applyDemoControl(key, value);
   }
+  
+  // Vẽ lại UI lập tức sau khi thao tác
   render();
 }
 
@@ -1318,11 +1325,23 @@ els.modeSeg.querySelectorAll("button").forEach((btn) => {
   });
 });
 
+/* Sự kiện kéo thanh Slider đã được fix lỗi khóa chéo */
 [els.startRange, els.stopRange].forEach((slider) => {
   slider.addEventListener("mousedown", () => { sliderActive = true; });
   slider.addEventListener("touchstart", () => { sliderActive = true; });
 
-  slider.addEventListener("input", () => {
+  slider.addEventListener("input", (e) => {
+    let start = Number(els.startRange.value);
+    let stop  = Number(els.stopRange.value);
+
+    // KHOÁ CHÉO (Interlock): Ngăn chặn 2 con trượt đụng nhau khi kéo
+    if (e.target === els.startRange && start >= stop) {
+      els.startRange.value = stop - 5;
+    }
+    if (e.target === els.stopRange && stop <= start) {
+      els.stopRange.value = start + 5;
+    }
+
     els.startVal.textContent = els.startRange.value + "%";
     els.stopVal.textContent  = els.stopRange.value + "%";
   });
@@ -1331,11 +1350,7 @@ els.modeSeg.querySelectorAll("button").forEach((btn) => {
     sliderActive = false;
     const start = Number(els.startRange.value);
     const stop  = Number(els.stopRange.value);
-    if (start >= stop) {
-      alert("Ngưỡng BẬT phải nhỏ hơn ngưỡng DỪNG!");
-      renderControls();
-      return;
-    }
+    
     writeSetting("start_level", start);
     writeSetting("stop_level", stop);
     addLog("Admin", `Cập nhật ngưỡng bơm: ${start}% - ${stop}%`);
