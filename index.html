@@ -803,16 +803,10 @@ input[type="range"]:disabled { opacity: .35; cursor: not-allowed; }
 /* ================================================================
    1. CẤU HÌNH
    ================================================================ */
-
-/**
- * ⚠️ THAY CÁC GIÁ TRỊ DƯỚI ĐÂY BẰNG THÔNG TIN FIREBASE CỦA BẠN
- * (Firebase Console → Project Settings → Your apps → Web app)
- * Bắt buộc phải có `databaseURL` trỏ tới Realtime Database.
- */
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyDFesYG6e6xZ4Bko66gpU-GaxrCPxzgRIc",
   authDomain: "ai-news-cleaner.firebaseapp.com",
-databaseURL:       "https://ai-news-cleaner-default-rtdb.asia-southeast1.firebasedatabase.app/",
+  databaseURL: "https://ai-news-cleaner-default-rtdb.asia-southeast1.firebasedatabase.app/",
   projectId: "ai-news-cleaner",
   storageBucket: "ai-news-cleaner.firebasestorage.app",
   messagingSenderId: "473766624243",
@@ -821,19 +815,11 @@ databaseURL:       "https://ai-news-cleaner-default-rtdb.asia-southeast1.firebas
 };
 const DB_ROOT = "system";
 
-/**
- * Mật khẩu Admin = "admin@2026" (đã mã hoá Base64 để tránh lộ plaintext trong source).
- * ⚠️ LƯU Ý BẢO MẬT: Đây chỉ là lớp bảo vệ phía client, KHÔNG phải bảo mật thật.
- * Với hệ thống production, hãy dùng Firebase Authentication + Security Rules:
- *   { "rules": { "system": { "control": { ".write": "auth != null" } } } }
- */
-const ADMIN_PASSWORD_B64 = "YWRtaW5AMjAyNg=="; // "admin@2026"
-
+/** Mật khẩu Admin: "admin@2026" */
+const ADMIN_PASSWORD_B64 = "YWRtaW5AMjAyNg==";
 const LOG_LIMIT = 60;
 
-/** Tự động phát hiện chế độ DEMO nếu chưa cấu hình Firebase */
 const DEMO_MODE = FIREBASE_CONFIG.databaseURL.includes("YOUR_PROJECT");
-
 
 /* ================================================================
    2. STATE
@@ -855,12 +841,9 @@ const state = {
   ready:    false
 };
 
-/** Tham chiếu module Firebase (chỉ có ở chế độ live) */
 let fb = null;
 let demoTimer = null;
-let logSig = "";
 let sliderActive = false;
-
 
 /* ================================================================
    3. DOM REFS
@@ -868,27 +851,26 @@ let sliderActive = false;
 const $ = (id) => document.getElementById(id);
 
 const els = {
-  connBadge: $("connBadge"),
-  connText:  $("connText"),
-  authBtn:   $("authBtn"),
+  connBadge:    $("connBadge"),
+  connText:     $("connText"),
+  authBtn:      $("authBtn"),
+  demoNotice:   $("demoNotice"),
 
-  demoNotice: $("demoNotice"),
+  tankEl:       $("tankEl"),
+  tankFill:     $("tankFill"),
+  tankBadge:    $("tankBadge"),
+  levelPct:     $("levelPct"),
 
-  tankEl:    $("tankEl"),
-  tankFill:  $("tankFill"),
-  tankBadge: $("tankBadge"),
-  levelPct:  $("levelPct"),
-
-  tileLevel: $("tileLevel"),
-  tilePump:  $("tilePump"),
-  tileMode:  $("tileMode"),
-  tileEmg:   $("tileEmg"),
-  valLevel:  $("valLevel"),
-  valPump:   $("valPump"),
-  valMode:   $("valMode"),
-  valEmg:    $("valEmg"),
-  valUpdated:$("valUpdated"),
-  valSource: $("valSource"),
+  tileLevel:    $("tileLevel"),
+  tilePump:     $("tilePump"),
+  tileMode:     $("tileMode"),
+  tileEmg:      $("tileEmg"),
+  valLevel:     $("valLevel"),
+  valPump:      $("valPump"),
+  valMode:      $("valMode"),
+  valEmg:       $("valEmg"),
+  valUpdated:   $("valUpdated"),
+  valSource:    $("valSource"),
 
   lockChip:     $("lockChip"),
   pumpSwitch:   $("pumpSwitch"),
@@ -900,8 +882,8 @@ const els = {
   stopVal:      $("stopVal"),
   emergencyBtn: $("emergencyBtn"),
 
-  logs:     $("logs"),
-  logCount: $("logCount"),
+  logs:         $("logs"),
+  logCount:     $("logCount"),
 
   loginModal:   $("loginModal"),
   pwdInput:     $("pwdInput"),
@@ -909,7 +891,6 @@ const els = {
   cancelLogin:  $("cancelLogin"),
   confirmLogin: $("confirmLogin")
 };
-
 
 /* ================================================================
    4. HELPERS
@@ -926,7 +907,6 @@ function parseDate(value) {
   if (!value) return null;
   if (value instanceof Date) return value;
   if (typeof value === "number") {
-    // Hỗ trợ cả giây (10 chữ số) và mili-giây (13 chữ số)
     return new Date(value < 1e12 ? value * 1000 : value);
   }
   const d = new Date(value);
@@ -936,15 +916,13 @@ function parseDate(value) {
 function relativeTime(date) {
   if (!date) return "—";
   const diff = Math.floor((Date.now() - date.getTime()) / 1000);
-  if (diff < 0)    return "vừa xong";
-  if (diff < 5)    return "vừa xong";
-  if (diff < 60)   return `${diff} giây trước`;
-  if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
+  if (diff < 0 || diff < 5) return "vừa xong";
+  if (diff < 60)            return `${diff} giây trước`;
+  if (diff < 3600)          return `${Math.floor(diff / 60)} phút trước`;
+  if (diff < 86400)         return `${Math.floor(diff / 3600)} giờ trước`;
   return formatTimestamp(date);
 }
 
-/** Lấy % mực nước (ưu tiên field water_level_percent, fallback theo state) */
 function getLevelPercent() {
   const s = state.status;
   if (typeof s.water_level_percent === "number" && !isNaN(s.water_level_percent)) {
@@ -957,9 +935,8 @@ function getLevelPercent() {
   }
 }
 
-
 /* ================================================================
-   5. KẾT NỐI FIREBASE (v9 Modular - dynamic import)
+   5. KẾT NỐI FIREBASE
    ================================================================ */
 async function connectFirebase() {
   const V = "10.12.5";
@@ -971,15 +948,20 @@ async function connectFirebase() {
 
   fb = {
     db,
-    ref:        dbMod.ref,
-    onValue:    dbMod.onValue,
-    set:        dbMod.set,
-    push:       dbMod.push,
-    query:      dbMod.query,
-    limitToLast:dbMod.limitToLast
+    ref:         dbMod.ref,
+    onValue:     dbMod.onValue,
+    set:         dbMod.set,
+    push:        dbMod.push,
+    query:       dbMod.query,
+    limitToLast: dbMod.limitToLast
   };
 
-  /* --- Trạng thái (ESP32 ghi) --- */
+  /* Theo dõi kết nối mạng */
+  fb.onValue(fb.ref(db, ".info/connected"), (snap) => {
+    setConn(snap.val() ? "ok" : "warn", snap.val() ? "Đã kết nối" : "Mất kết nối");
+  });
+
+  /* Trạng thái */
   fb.onValue(fb.ref(db, `${DB_ROOT}/status`), (snap) => {
     const v = snap.val() || {};
     state.status = { ...state.status, ...v };
@@ -987,13 +969,13 @@ async function connectFirebase() {
     render();
   }, (err) => setConn("danger", "Lỗi: " + err.code));
 
-  /* --- Lệnh điều khiển --- */
+  /* Lệnh điều khiển */
   fb.onValue(fb.ref(db, `${DB_ROOT}/control`), (snap) => {
     state.control = { ...state.control, ...(snap.val() || {}) };
     renderControls();
   });
 
-  /* --- Cài đặt ngưỡng --- */
+  /* Cài đặt ngưỡng */
   fb.onValue(fb.ref(db, `${DB_ROOT}/settings`), (snap) => {
     if (snap.exists()) {
       state.settings = { ...state.settings, ...snap.val() };
@@ -1001,24 +983,18 @@ async function connectFirebase() {
     }
   });
 
-  /* --- Nhật ký (chỉ lấy 60 bản ghi mới nhất) --- */
+  /* Nhật ký */
   fb.onValue(
     fb.query(fb.ref(db, `${DB_ROOT}/logs`), fb.limitToLast(LOG_LIMIT)),
     (snap) => {
       const arr = [];
       snap.forEach((child) => arr.push({ id: child.key, ...child.val() }));
-      arr.reverse(); // mới nhất lên đầu
+      arr.reverse();
       state.logs = arr;
       renderLogs();
     }
   );
-
-  /* --- Theo dõi kết nối --- */
-  fb.onValue(fb.ref(db, ".info/connected"), (snap) => {
-    setConn(snap.val() ? "ok" : "warn", snap.val() ? "Đã kết nối" : "Mất kết nối");
-  });
 }
-
 
 /* ================================================================
    6. GHI DỮ LIỆU LÊN FIREBASE
@@ -1052,7 +1028,6 @@ async function writeSetting(key, value) {
   renderControls();
 }
 
-/** Ghi nhật ký sự kiện */
 function addLog(actor, action) {
   const entry = {
     timestamp: formatTimestamp(),
@@ -1070,9 +1045,8 @@ function addLog(actor, action) {
   }
 }
 
-
 /* ================================================================
-   7. DEMO MODE — MÔ PHỎNG ESP32
+   7. DEMO MODE
    ================================================================ */
 function applyDemoControl(key, value) {
   const s = state.status;
@@ -1114,7 +1088,6 @@ function demoTick() {
   if (s.emergency_lock) {
     s.pump_running = false;
   } else {
-    // Bơm chạy → nước dâng; bơm dừng → nước tiêu thụ giảm dần
     pct += s.pump_running ? 2.5 : -1.3;
     pct += (Math.random() - 0.5) * 0.5;
   }
@@ -1123,7 +1096,6 @@ function demoTick() {
   s.water_level_percent = pct;
   s.water_level_state   = pct <= 15 ? "EMPTY" : pct >= 90 ? "FULL" : "NORMAL";
 
-  /* Logic tự động hoá (mô phỏng firmware ESP32) */
   if (!s.emergency_lock && s.current_mode === "AUTO") {
     if (!s.pump_running && pct <= cfg.start_level) {
       s.pump_running = true;
@@ -1140,7 +1112,6 @@ function demoTick() {
 
   render();
 }
-
 
 /* ================================================================
    8. RENDER
@@ -1164,7 +1135,6 @@ function render() {
   renderLogs();
 }
 
-/* ---------- TANK ---------- */
 function renderTank() {
   const pct = getLevelPercent();
   const st  = state.status.water_level_state || "NORMAL";
@@ -1175,7 +1145,6 @@ function renderTank() {
   els.tankBadge.textContent = st;
   els.tankBadge.className   = "tank-badge " + st.toLowerCase();
 
-  // Đổi màu nước theo trạng thái
   let top = "#38bdf8", bot = "#1d4ed8";
   if (st === "EMPTY")      { top = "#fbbf24"; bot = "#b45309"; }
   else if (st === "FULL")  { top = "#34d399"; bot = "#0d9488"; }
@@ -1184,11 +1153,9 @@ function renderTank() {
   els.tankEl.style.setProperty("--w-bot", bot);
 }
 
-/* ---------- STATUS TILES ---------- */
 function renderStatus() {
   const s = state.status;
 
-  /* Mực nước */
   const levelMap = {
     EMPTY:  { text: "CẠN NƯỚC",     cls: "danger" },
     NORMAL: { text: "BÌNH THƯỜNG",  cls: "info"   },
@@ -1198,27 +1165,22 @@ function renderStatus() {
   els.valLevel.textContent = lv.text;
   els.tileLevel.className  = "tile " + lv.cls;
 
-  /* Máy bơm */
   const pumpOn = Boolean(s.pump_running);
   els.valPump.textContent = pumpOn ? "ĐANG BƠM" : "ĐANG DỪNG";
   els.tilePump.className  = "tile " + (pumpOn ? "ok" : "");
 
-  /* Chế độ */
   const isAuto = s.current_mode === "AUTO";
   els.valMode.textContent = isAuto ? "TỰ ĐỘNG" : "THỦ CÔNG";
   els.tileMode.className  = "tile " + (isAuto ? "info" : "warn");
 
-  /* Khoá khẩn cấp */
   const emg = Boolean(s.emergency_lock);
   els.valEmg.textContent = emg ? "ĐANG KHOÁ" : "BÌNH THƯỜNG";
   els.tileEmg.className  = "tile " + (emg ? "danger" : "ok");
 
-  /* Footer */
   els.valUpdated.textContent = relativeTime(parseDate(s.last_updated));
   els.valSource.textContent  = state.source === "demo" ? "Mô phỏng (Demo)" : "ESP32";
 }
 
-/* ---------- CONTROLS ---------- */
 function renderControls() {
   const admin  = state.isAdmin;
   const s      = state.status;
@@ -1236,4 +1198,173 @@ function renderControls() {
 
   if (locked) {
     els.pumpSub.textContent = "Hệ thống đang bị khoá khẩn cấp";
-    els.pumpSub.className   = "ctl
+    els.pumpSub.className   = "ctl-sub hint";
+  } else if (isAuto) {
+    els.pumpSub.textContent = "Đang chạy AUTO (chuyển MANUAL để bật/tắt tay)";
+    els.pumpSub.className   = "ctl-sub hint";
+  } else {
+    els.pumpSub.textContent = pumpOn ? "Đang bơm nước" : "Đang dừng";
+    els.pumpSub.className   = "ctl-sub";
+  }
+
+  /* Segmented buttons */
+  const segBtns = els.modeSeg.querySelectorAll("button");
+  segBtns.forEach((btn) => {
+    const m = btn.getAttribute("data-mode");
+    btn.classList.toggle("active", m === s.current_mode);
+    btn.disabled = !admin || locked;
+  });
+
+  /* Range sliders */
+  if (!sliderActive) {
+    els.startRange.value = state.settings.start_level ?? 30;
+    els.stopRange.value  = state.settings.stop_level ?? 90;
+    els.startVal.textContent = els.startRange.value + "%";
+    els.stopVal.textContent  = els.stopRange.value + "%";
+  }
+  els.startRange.disabled = !admin || locked;
+  els.stopRange.disabled  = !admin || locked;
+
+  /* Emergency Button */
+  els.emergencyBtn.disabled = !admin;
+  if (locked) {
+    els.emergencyBtn.textContent = "🔓 MỞ KHOÁ HỆ THỐNG";
+    els.emergencyBtn.className   = "btn-emergency unlock";
+  } else {
+    els.emergencyBtn.textContent = "⛔ DỪNG KHẨN CẤP";
+    els.emergencyBtn.className   = "btn-emergency";
+  }
+
+  /* Auth Button */
+  els.authBtn.textContent = admin ? "🔓 Đăng xuất Admin" : "🔐 Đăng nhập Admin";
+  els.authBtn.className   = admin ? "btn admin-on" : "btn ghost";
+}
+
+function renderLogs() {
+  els.logCount.textContent = state.logs.length;
+  if (!state.logs.length) {
+    els.logs.innerHTML = `<div class="log-empty">Chưa có sự kiện nào.</div>`;
+    return;
+  }
+  els.logs.innerHTML = state.logs.map((item) => {
+    const isAdmin = item.actor === "Admin";
+    return `
+      <div class="log-item ${isAdmin ? "by-admin" : ""}">
+        <div class="log-ico">${isAdmin ? "👤" : "📡"}</div>
+        <div class="log-body">
+          <div class="log-action">${item.action}</div>
+          <div class="log-meta">
+            <span class="tag ${isAdmin ? "tag-admin" : "tag-esp"}">${item.actor}</span>
+            <span>${item.timestamp || "—"}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+}
+
+/* ================================================================
+   9. EVENT LISTENERS
+   ================================================================ */
+function handleLogin() {
+  const entered = els.pwdInput.value.trim();
+  const validPass = atob(ADMIN_PASSWORD_B64);
+  if (entered === validPass) {
+    state.isAdmin = true;
+    els.loginModal.hidden = true;
+    addLog("Admin", "Đăng nhập quyền Quản trị viên thành công");
+    renderControls();
+  } else {
+    els.loginErr.textContent = "Mật khẩu không chính xác. Vui lòng thử lại!";
+  }
+}
+
+els.authBtn.addEventListener("click", () => {
+  if (state.isAdmin) {
+    state.isAdmin = false;
+    addLog("Admin", "Đã đăng xuất quyền Quản trị viên");
+    renderControls();
+  } else {
+    els.pwdInput.value = "";
+    els.loginErr.textContent = "";
+    els.loginModal.hidden = false;
+    els.pwdInput.focus();
+  }
+});
+
+els.cancelLogin.addEventListener("click", () => {
+  els.loginModal.hidden = true;
+});
+
+els.confirmLogin.addEventListener("click", handleLogin);
+
+els.pwdInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") handleLogin();
+});
+
+els.pumpSwitch.addEventListener("click", () => {
+  if (!state.isAdmin) return;
+  const next = !state.status.pump_running;
+  writeControl("pump_cmd", next);
+  addLog("Admin", `${next ? "BẬT" : "TẮT"} máy bơm thủ công`);
+});
+
+els.modeSeg.querySelectorAll("button").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    if (!state.isAdmin) return;
+    const m = btn.getAttribute("data-mode");
+    writeControl("mode_cmd", m);
+    addLog("Admin", `Chuyển sang chế độ ${m}`);
+  });
+});
+
+[els.startRange, els.stopRange].forEach((slider) => {
+  slider.addEventListener("mousedown", () => { sliderActive = true; });
+  slider.addEventListener("touchstart", () => { sliderActive = true; });
+
+  slider.addEventListener("input", () => {
+    els.startVal.textContent = els.startRange.value + "%";
+    els.stopVal.textContent  = els.stopRange.value + "%";
+  });
+
+  slider.addEventListener("change", () => {
+    sliderActive = false;
+    const start = Number(els.startRange.value);
+    const stop  = Number(els.stopRange.value);
+    if (start >= stop) {
+      alert("Ngưỡng BẬT phải nhỏ hơn ngưỡng DỪNG!");
+      renderControls();
+      return;
+    }
+    writeSetting("start_level", start);
+    writeSetting("stop_level", stop);
+    addLog("Admin", `Cập nhật ngưỡng bơm: ${start}% - ${stop}%`);
+  });
+});
+
+els.emergencyBtn.addEventListener("click", () => {
+  if (!state.isAdmin) return;
+  const next = !state.status.emergency_lock;
+  writeControl("emergency_cmd", next);
+  addLog("Admin", next ? "🚨 KÍCH HOẠT DỪNG KHẨN CẤP" : "Hủy dừng khẩn cấp, đưa hệ thống về bình thường");
+});
+
+/* ================================================================
+   10. KHỞI TẠO HỆ THỐNG
+   ================================================================ */
+window.addEventListener("DOMContentLoaded", () => {
+  render();
+  if (DEMO_MODE) {
+    els.demoNotice.hidden = false;
+    startDemo();
+  } else {
+    els.demoNotice.hidden = true;
+    connectFirebase().catch((err) => {
+      console.error("Firebase init failed:", err);
+      setConn("danger", "Lỗi nạp Firebase");
+    });
+  }
+});
+</script>
+</body>
+</html>
