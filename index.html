@@ -1,1447 +1,1239 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Summer Play-Lab | Chơi thật - Học thật - Không màn hình</title>
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <style>
-        /* CSS Variables */
-        :root {
-            --primary: #4ade80; /* Vibrant Kid Green */
-            --primary-dark: #22c55e;
-            --secondary: #fb923c; /* Energetic Orange */
-            --secondary-dark: #ea580c;
-            --bg-color: #f8fafc;
-            --text-dark: #1e293b;
-            --text-light: #64748b;
-            --white: #ffffff;
-            
-            --radius-sm: 12px;
-            --radius-md: 20px;
-            --radius-lg: 32px;
-            
-            --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-            --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-            
-            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        /* Reset & Base Styles */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Nunito', sans-serif;
-        }
-
-        html {
-            scroll-behavior: smooth;
-        }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-dark);
-            line-height: 1.6;
-            overflow-x: hidden;
-        }
-
-        a {
-            text-decoration: none;
-            color: inherit;
-        }
-
-        ul {
-            list-style: none;
-        }
-
-        /* Typography */
-        h1, h2, h3, h4 {
-            color: var(--text-dark);
-            line-height: 1.3;
-        }
-
-        .section-title {
-            text-align: center;
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: var(--primary-dark);
-            margin-bottom: 1rem;
-        }
-
-        .section-subtitle {
-            text-align: center;
-            font-size: 1.15rem;
-            color: var(--text-light);
-            margin-bottom: 3rem;
-            max-width: 700px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        /* Layout */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 24px;
-        }
-
-        .section-padding {
-            padding: 100px 0;
-        }
-
-        /* Buttons */
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 14px 32px;
-            border-radius: 50px;
-            font-size: 1.1rem;
-            font-weight: 800;
-            cursor: pointer;
-            transition: var(--transition);
-            border: none;
-            gap: 10px;
-        }
-
-        .btn-primary {
-            background-color: var(--secondary);
-            color: var(--white);
-            box-shadow: 0 4px 14px rgba(251, 146, 60, 0.4);
-        }
-
-        .btn-primary:hover {
-            background-color: var(--secondary-dark);
-            transform: translateY(-4px);
-            box-shadow: 0 8px 24px rgba(234, 88, 12, 0.4);
-        }
-
-        .btn-outline {
-            background-color: transparent;
-            color: var(--primary-dark);
-            border: 2px solid var(--primary-dark);
-        }
-
-        .btn-outline:hover {
-            background-color: var(--primary-dark);
-            color: var(--white);
-            transform: translateY(-4px);
-            box-shadow: 0 8px 24px rgba(34, 197, 94, 0.3);
-        }
-
-        /* Header & Navbar */
-        header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            background-color: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            z-index: 1000;
-            transition: var(--transition);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .navbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            height: 80px;
-        }
-
-        .logo {
-            font-size: 1.8rem;
-            font-weight: 900;
-            color: var(--primary-dark);
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .logo i {
-            color: var(--secondary);
-            font-size: 2rem;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 32px;
-            align-items: center;
-        }
-
-        .nav-links li a.nav-item {
-            font-weight: 700;
-            color: var(--text-dark);
-            transition: var(--transition);
-            font-size: 1.1rem;
-        }
-
-        .nav-links li a.nav-item:hover {
-            color: var(--primary-dark);
-        }
-
-        .mobile-menu-btn {
-            display: none;
-            font-size: 1.8rem;
-            color: var(--primary-dark);
-            cursor: pointer;
-            background: none;
-            border: none;
-        }
-
-        /* Hero Section */
-        .hero {
-            padding: 160px 0 100px;
-            background: linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%);
-            position: relative;
-            text-align: center;
-            overflow: hidden;
-        }
-
-        /* Decorative circles */
-        .hero::before, .hero::after {
-            content: '';
-            position: absolute;
-            border-radius: 50%;
-            z-index: 0;
-        }
-
-        .hero::before {
-            width: 400px;
-            height: 400px;
-            background: rgba(74, 222, 128, 0.15);
-            top: -100px;
-            left: -150px;
-        }
-
-        .hero::after {
-            width: 500px;
-            height: 500px;
-            background: rgba(251, 146, 60, 0.1);
-            bottom: -200px;
-            right: -150px;
-        }
-
-        .hero-content {
-            position: relative;
-            z-index: 1;
-            max-width: 850px;
-            margin: 0 auto;
-            animation: fadeInDown 1s ease-out;
-        }
-
-        .hero-badge {
-            display: inline-block;
-            padding: 8px 20px;
-            background-color: var(--white);
-            color: var(--secondary-dark);
-            border-radius: 50px;
-            font-weight: 800;
-            font-size: 1rem;
-            margin-bottom: 24px;
-            box-shadow: var(--shadow-sm);
-        }
-
-        .hero h1 {
-            font-size: 4rem;
-            font-weight: 900;
-            margin-bottom: 24px;
-        }
-
-        .hero h1 span {
-            color: var(--secondary);
-            display: block;
-        }
-
-        .hero p {
-            font-size: 1.25rem;
-            color: var(--text-light);
-            margin-bottom: 40px;
-            font-weight: 600;
-        }
-
-        .hero-btns {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-        }
-
-        /* About Section */
-        .about-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 60px;
-            align-items: center;
-        }
-
-        .about-image-wrapper {
-            background-color: #ffedd5;
-            border-radius: var(--radius-lg);
-            padding: 40px;
-            text-align: center;
-            position: relative;
-            box-shadow: var(--shadow-md);
-        }
-
-        .about-image-wrapper i {
-            font-size: 150px;
-            color: var(--secondary);
-            opacity: 0.8;
-            margin-bottom: 20px;
-            display: block;
-        }
-
-        .about-image-wrapper h3 {
-            font-size: 2rem;
-            color: var(--secondary-dark);
-            font-weight: 800;
-        }
-
-        .about-features {
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-        }
-
-        .feature-item {
-            display: flex;
-            gap: 20px;
-            align-items: flex-start;
-            padding: 24px;
-            background: var(--white);
-            border-radius: var(--radius-md);
-            box-shadow: var(--shadow-sm);
-            transition: var(--transition);
-            border-left: 6px solid transparent;
-        }
-
-        .feature-item:hover {
-            transform: translateX(10px);
-            box-shadow: var(--shadow-md);
-        }
-
-        .feature-item:nth-child(2):hover { border-left-color: #ec4899; }
-        .feature-item:nth-child(3):hover { border-left-color: var(--secondary); }
-        .feature-item:nth-child(4):hover { border-left-color: #3b82f6; }
-
-        .feature-icon {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.5rem;
-            flex-shrink: 0;
-        }
-
-        .feature-item:nth-child(2) .feature-icon { background: #fce7f3; color: #ec4899; }
-        .feature-item:nth-child(3) .feature-icon { background: #ffedd5; color: var(--secondary-dark); }
-        .feature-item:nth-child(4) .feature-icon { background: #dbeafe; color: #3b82f6; }
-
-        .feature-content h3 {
-            font-size: 1.3rem;
-            margin-bottom: 8px;
-            font-weight: 800;
-        }
-
-        /* Programs Section */
-        .programs-bg {
-            background-color: var(--white);
-        }
-
-        .programs-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 30px;
-        }
-
-        .program-card {
-            background: var(--bg-color);
-            border-radius: var(--radius-md);
-            padding: 40px 30px;
-            text-align: center;
-            transition: var(--transition);
-            position: relative;
-            overflow: hidden;
-            border: 2px solid transparent;
-        }
-
-        .program-card::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 8px;
-            background: var(--primary-dark);
-            transition: var(--transition);
-        }
-
-        .program-card:nth-child(2)::before { background: var(--secondary); }
-        .program-card:nth-child(3)::before { background: #3b82f6; }
-        .program-card:nth-child(4)::before { background: #ec4899; }
-
-        .program-card:hover {
-            transform: translateY(-10px);
-            box-shadow: var(--shadow-md);
-        }
-
-        .program-card:nth-child(1):hover { border-color: rgba(34, 197, 94, 0.3); }
-        .program-card:nth-child(2):hover { border-color: rgba(251, 146, 60, 0.3); }
-        .program-card:nth-child(3):hover { border-color: rgba(59, 130, 246, 0.3); }
-        .program-card:nth-child(4):hover { border-color: rgba(236, 72, 153, 0.3); }
-
-        .program-icon {
-            font-size: 3.5rem;
-            margin-bottom: 24px;
-        }
-
-        .program-card:nth-child(1) .program-icon { color: var(--primary-dark); }
-        .program-card:nth-child(2) .program-icon { color: var(--secondary); }
-        .program-card:nth-child(3) .program-icon { color: #3b82f6; }
-        .program-card:nth-child(4) .program-icon { color: #ec4899; }
-
-        .program-card h3 {
-            font-size: 1.6rem;
-            font-weight: 800;
-            margin-bottom: 16px;
-        }
-
-        /* Benefits Section */
-        .benefits-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 30px;
-        }
-
-        .benefit-card {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            background: var(--white);
-            padding: 30px;
-            border-radius: var(--radius-md);
-            box-shadow: var(--shadow-sm);
-            transition: var(--transition);
-        }
-
-        .benefit-card:hover {
-            transform: scale(1.02);
-            box-shadow: var(--shadow-md);
-        }
-
-        .benefit-icon {
-            width: 70px;
-            height: 70px;
-            background: #dcfce7;
-            color: var(--primary-dark);
-            border-radius: var(--radius-md);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 2rem;
-            flex-shrink: 0;
-            transform: rotate(-10deg);
-        }
-
-        .benefit-card:nth-child(even) .benefit-icon {
-            background: #ffedd5;
-            color: var(--secondary-dark);
-            transform: rotate(10deg);
-        }
-
-        .benefit-content h4 {
-            font-size: 1.3rem;
-            font-weight: 800;
-            margin-bottom: 8px;
-        }
-
-        /* Daily Lab-Log Section */
-        .lab-log-container {
-            background: linear-gradient(135deg, var(--primary-dark) 0%, #16a34a 100%);
-            border-radius: var(--radius-lg);
-            padding: 80px 60px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin: 60px 24px;
-            box-shadow: var(--shadow-lg);
-            color: var(--white);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .lab-log-container::before {
-            content: '\f201';
-            font-family: 'FontAwesome';
-            position: absolute;
-            font-size: 300px;
-            color: rgba(255, 255, 255, 0.05);
-            right: 10%;
-            top: -20%;
-        }
-
-        .lab-log-content {
-            max-width: 500px;
-            position: relative;
-            z-index: 1;
-        }
-
-        .lab-log-content h2 {
-            font-size: 3rem;
-            font-weight: 900;
-            color: var(--white);
-            margin-bottom: 24px;
-        }
-
-        .lab-log-content p {
-            font-size: 1.2rem;
-            margin-bottom: 30px;
-            opacity: 0.9;
-        }
-
-        .lab-log-list li {
-            font-size: 1.1rem;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-weight: 600;
-        }
-
-        .lab-log-list i {
-            background: var(--white);
-            color: var(--primary-dark);
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.9rem;
-        }
-
-        .mock-card {
-            background: var(--white);
-            color: var(--text-dark);
-            border-radius: var(--radius-md);
-            padding: 30px;
-            width: 100%;
-            max-width: 420px;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-            transform: rotate(4deg);
-            transition: var(--transition);
-            position: relative;
-            z-index: 1;
-        }
-
-        .mock-card:hover {
-            transform: rotate(0deg) scale(1.03);
-        }
-
-        .mock-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px dashed #e2e8f0;
-            padding-bottom: 16px;
-            margin-bottom: 20px;
-        }
-
-        .mock-date {
-            font-weight: 800;
-            color: var(--secondary-dark);
-            font-size: 1.1rem;
-        }
-
-        .mock-badge {
-            background: #dcfce7;
-            color: var(--primary-dark);
-            padding: 6px 16px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            font-weight: 800;
-        }
-
-        .mock-body p {
-            font-size: 1.1rem;
-            margin-bottom: 16px;
-        }
-
-        .mock-emojis {
-            display: flex;
-            gap: 12px;
-            font-size: 1.8rem;
-            margin-top: 24px;
-            justify-content: center;
-            background: var(--bg-color);
-            padding: 10px;
-            border-radius: var(--radius-sm);
-        }
-
-        /* Services Section */
-        .services-bg {
-            background-color: var(--white);
-        }
-
-        .services-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 30px;
-        }
-
-        .service-card {
-            background: var(--bg-color);
-            border-radius: var(--radius-md);
-            overflow: hidden;
-            box-shadow: var(--shadow-sm);
-            transition: var(--transition);
-            border: 1px solid #e2e8f0;
-        }
-
-        .service-card:hover {
-            box-shadow: var(--shadow-md);
-            transform: translateY(-8px);
-        }
-
-        .service-img {
-            height: 220px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 5rem;
-        }
-
-        .service-card:nth-child(1) .service-img { background: #dcfce7; color: var(--primary-dark); }
-        .service-card:nth-child(2) .service-img { background: #ffedd5; color: var(--secondary-dark); }
-        .service-card:nth-child(3) .service-img { background: #e0e7ff; color: #4f46e5; }
-
-        .service-info {
-            padding: 30px;
-            text-align: center;
-        }
-
-        .service-info h3 {
-            font-size: 1.5rem;
-            font-weight: 800;
-            margin-bottom: 12px;
-        }
-
-        /* Registration Form */
-        .registration {
-            position: relative;
-        }
-
-        .reg-container {
-            max-width: 850px;
-            margin: 0 auto;
-            background: var(--white);
-            border-radius: var(--radius-lg);
-            padding: 60px;
-            box-shadow: var(--shadow-lg);
-            border-top: 8px solid var(--secondary);
-        }
-
-        .form-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 24px;
-        }
-
-        .form-group.full-width {
-            grid-column: 1 / -1;
-        }
-
-        .form-group label {
-            display: block;
-            font-weight: 800;
-            margin-bottom: 10px;
-            color: var(--text-dark);
-        }
-
-        .form-control {
-            width: 100%;
-            padding: 16px 20px;
-            border: 2px solid #e2e8f0;
-            border-radius: var(--radius-sm);
-            font-size: 1.05rem;
-            transition: var(--transition);
-            background-color: var(--bg-color);
-        }
-
-        .form-control:focus {
-            outline: none;
-            border-color: var(--secondary);
-            background-color: var(--white);
-            box-shadow: 0 0 0 4px rgba(251, 146, 60, 0.2);
-        }
-
-        .form-btn {
-            width: 100%;
-            padding: 18px;
-            font-size: 1.25rem;
-            margin-top: 16px;
-            border-radius: var(--radius-sm);
-        }
-
-        .success-message {
-            display: none;
-            background-color: #dcfce7;
-            color: var(--primary-dark);
-            padding: 30px;
-            border-radius: var(--radius-sm);
-            text-align: center;
-            font-weight: 800;
-            font-size: 1.2rem;
-            margin-top: 20px;
-            animation: fadeInDown 0.5s ease;
-            border: 2px solid var(--primary-dark);
-        }
-
-        /* Footer */
-        footer {
-            background-color: var(--text-dark);
-            color: var(--white);
-            padding: 80px 0 30px;
-        }
-
-        .footer-grid {
-            display: grid;
-            grid-template-columns: 2fr 1fr 1.5fr;
-            gap: 50px;
-            margin-bottom: 50px;
-        }
-
-        .footer-brand h2 {
-            font-size: 2.2rem;
-            font-weight: 900;
-            color: var(--primary);
-            margin-bottom: 20px;
-        }
-
-        .footer-brand p {
-            color: #cbd5e1;
-            margin-bottom: 30px;
-            max-width: 350px;
-            font-size: 1.1rem;
-        }
-
-        .social-icons {
-            display: flex;
-            gap: 16px;
-        }
-
-        .social-icon {
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            transition: var(--transition);
-        }
-
-        .social-icon:hover {
-            background: var(--secondary);
-            transform: translateY(-5px);
-            color: var(--white);
-        }
-
-        .footer-title {
-            font-size: 1.3rem;
-            font-weight: 800;
-            margin-bottom: 24px;
-            color: var(--white);
-        }
-
-        .footer-links li {
-            margin-bottom: 16px;
-        }
-
-        .footer-links a {
-            color: #cbd5e1;
-            transition: var(--transition);
-            font-weight: 600;
-        }
-
-        .footer-links a:hover {
-            color: var(--primary);
-            padding-left: 8px;
-        }
-
-        .footer-contact li {
-            display: flex;
-            gap: 16px;
-            margin-bottom: 20px;
-            color: #cbd5e1;
-            align-items: flex-start;
-        }
-
-        .footer-contact i {
-            color: var(--secondary);
-            font-size: 1.2rem;
-            margin-top: 4px;
-        }
-
-        .footer-bottom {
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
-            padding-top: 30px;
-            text-align: center;
-            color: #94a3b8;
-            font-weight: 600;
-        }
-
-        /* FAQ Section */
-        .faq-bg {
-            background-color: var(--white);
-        }
-
-        .faq-container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-
-        .faq-item {
-            background: var(--bg-color);
-            border-radius: var(--radius-sm);
-            margin-bottom: 16px;
-            overflow: hidden;
-            border: 1px solid #e2e8f0;
-            transition: var(--transition);
-        }
-
-        .faq-question {
-            padding: 20px 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            font-weight: 800;
-            font-size: 1.1rem;
-            color: var(--text-dark);
-            transition: var(--transition);
-        }
-
-        .faq-question:hover {
-            color: var(--primary-dark);
-        }
-
-        .faq-icon {
-            transition: transform 0.3s ease;
-            color: var(--secondary);
-        }
-
-        .faq-answer {
-            padding: 0 24px;
-            max-height: 0;
-            overflow: hidden;
-            transition: all 0.3s ease;
-            color: var(--text-light);
-        }
-
-        .faq-answer-inner {
-            padding-bottom: 20px;
-        }
-
-        .faq-item.active {
-            border-color: var(--primary);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .faq-item.active .faq-icon {
-            transform: rotate(180deg);
-        }
-
-        .faq-item.active .faq-answer {
-            max-height: 500px;
-        }
-
-        /* Floating Contact Button */
-        .floating-contact {
-            position: fixed;
-            bottom: 30px;
-            right: 30px;
-            z-index: 999;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
-
-        .float-btn {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.8rem;
-            color: var(--white);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            cursor: pointer;
-            transition: var(--transition);
-            animation: bounce 2s infinite;
-        }
-
-        .float-zalo {
-            background-color: #0068ff;
-        }
-
-        .float-phone {
-            background-color: var(--primary-dark);
-            animation-delay: 1s;
-        }
-
-        .float-btn:hover {
-            transform: scale(1.1);
-            color: var(--white);
-        }
-
-        @keyframes bounce {
-            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-            40% { transform: translateY(-10px); }
-            60% { transform: translateY(-5px); }
-        }
-
-        /* Animations */
-        @keyframes fadeInDown {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Responsive Design */
-        @media (max-width: 1024px) {
-            .hero h1 { font-size: 3.5rem; }
-            .about-grid { gap: 40px; }
-            .lab-log-container { flex-direction: column; padding: 50px 40px; gap: 50px; text-align: center; }
-            .lab-log-list { align-items: center; display: inline-block; text-align: left; }
-            .mock-card { transform: rotate(0); margin: 0 auto; }
-            .benefits-grid { grid-template-columns: 1fr; }
-        }
-
-        @media (max-width: 768px) {
-            .navbar { height: 70px; }
-            .nav-links {
-                position: fixed;
-                top: 70px;
-                right: -100%;
-                width: 100%;
-                height: calc(100vh - 70px);
-                background: var(--white);
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                gap: 40px;
-                transition: var(--transition);
-                box-shadow: var(--shadow-md);
-            }
-            .nav-links.active { right: 0; }
-            .mobile-menu-btn { display: block; }
-            
-            .hero { padding: 130px 0 80px; }
-            .hero h1 { font-size: 2.8rem; }
-            .hero-btns { flex-direction: column; padding: 0 20px; }
-            
-            .about-grid { grid-template-columns: 1fr; }
-            .about-image-wrapper { margin-bottom: 30px; }
-            
-            .form-grid { grid-template-columns: 1fr; }
-            .reg-container { padding: 40px 24px; }
-            
-            .footer-grid { grid-template-columns: 1fr; gap: 40px; text-align: center; }
-            .social-icons { justify-content: center; }
-            .footer-contact li { justify-content: center; flex-direction: column; align-items: center; gap: 8px;}
-            .footer-contact i { margin-top: 0; }
-            .footer-links a:hover { padding-left: 0; }
-            
-            .lab-log-container { margin: 40px 0; border-radius: 0; }
-        }
-    </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Smart Water Station · IoT Dashboard</title>
+<style>
+/* ============================================================
+   RESET & TOKENS
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #060a13;
+  --card:      rgba(255, 255, 255, .035);
+  --border:    rgba(255, 255, 255, .09);
+  --text:      #e9eefb;
+  --dim:       #8fa0bd;
+  --mute:      #5a6a86;
+
+  --cyan:      #22d3ee;
+  --blue:      #3b82f6;
+  --green:     #22c55e;
+  --amber:     #f59e0b;
+  --red:       #ef4444;
+
+  --r:         18px;
+  --shadow:    0 18px 50px rgba(0, 0, 0, .45);
+}
+
+[hidden] { display: none !important; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(900px 560px at 6% -10%, rgba(34, 211, 238, .13), transparent 62%),
+    radial-gradient(820px 520px at 96% -4%, rgba(59, 130, 246, .13), transparent 60%),
+    radial-gradient(760px 700px at 50% 118%, rgba(16, 185, 129, .07), transparent 62%);
+  background-attachment: fixed;
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.22); }
+
+/* ============================================================
+   TOPBAR
+   ============================================================ */
+.topbar {
+  position: sticky; top: 0; z-index: 60;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  padding: 13px 26px;
+  background: rgba(6, 10, 19, .74);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand { display: flex; align-items: center; gap: 13px; }
+
+.logo {
+  width: 44px; height: 44px; flex: 0 0 44px;
+  display: grid; place-items: center;
+  font-size: 22px; border-radius: 13px;
+  background: linear-gradient(135deg, rgba(34,211,238,.22), rgba(59,130,246,.22));
+  border: 1px solid rgba(34,211,238,.35);
+  box-shadow: 0 0 26px rgba(34,211,238,.22) , inset 0 1px 0 rgba(255,255,255,.12);
+}
+
+.brand h1 {
+  font-size: 16.5px; font-weight: 800; letter-spacing: -.2px; line-height: 1.15;
+  background: linear-gradient(92deg, #ffffff, #9fd8ff 60%, #6fb4ff);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.brand p { font-size: 11.5px; color: var(--mute); letter-spacing: .5px; margin-top: 2px; }
+
+.topbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* Connection badge */
+.conn-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 13px; border-radius: 999px;
+  font-size: 12px; font-weight: 600; letter-spacing: .2px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid var(--border);
+  color: var(--dim);
+  transition: .25s;
+}
+.conn-badge .dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor; box-shadow: 0 0 10px currentColor;
+  animation: pulse 1.8s ease-in-out infinite;
+}
+.conn-badge.ok      { color: #4ade80; border-color: rgba(34,197,94,.4);  background: rgba(34,197,94,.10); }
+.conn-badge.warn    { color: #fbbf24; border-color: rgba(245,158,11,.4); background: rgba(245,158,11,.10); }
+.conn-badge.danger  { color: #f87171; border-color: rgba(239,68,68,.4);  background: rgba(239,68,68,.10); }
+.conn-badge.info    { color: #22d3ee; border-color: rgba(34,211,238,.4); background: rgba(34,211,238,.10); }
+.conn-badge.ok .dot, .conn-badge.info .dot { animation-duration: 1.4s; }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%      { opacity: .35; transform: scale(.75); }
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 9px 17px; border-radius: 11px;
+  font-family: inherit; font-size: 13px; font-weight: 700; letter-spacing: .2px;
+  cursor: pointer; border: 1px solid transparent;
+  transition: transform .15s, box-shadow .2s, background .2s, border-color .2s;
+  white-space: nowrap;
+}
+.btn:active { transform: translateY(1px); }
+
+.btn.ghost {
+  background: rgba(255,255,255,.05);
+  border-color: var(--border);
+  color: var(--text);
+}
+.btn.ghost:hover { background: rgba(255,255,255,.10); border-color: rgba(255,255,255,.2); }
+
+.btn.primary {
+  background: linear-gradient(135deg, var(--cyan), var(--blue));
+  color: #04121c;
+  box-shadow: 0 8px 26px rgba(34,211,238,.32);
+}
+.btn.primary:hover { box-shadow: 0 10px 32px rgba(34,211,238,.48); }
+
+.btn.admin-on {
+  background: linear-gradient(135deg, rgba(34,197,94,.9), rgba(13,148,136,.9));
+  color: #03150f;
+  box-shadow: 0 8px 26px rgba(34,197,94,.28);
+}
+
+/* ============================================================
+   LAYOUT
+   ============================================================ */
+.wrap { max-width: 1340px; margin: 0 auto; padding: 22px 26px 70px; }
+
+.notice {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 18px; margin-bottom: 18px;
+  border-radius: 14px;
+  font-size: 13px; line-height: 1.55; color: #fde68a;
+  background: linear-gradient(135deg, rgba(245,158,11,.13), rgba(245,158,11,.05));
+  border: 1px solid rgba(245,158,11,.32);
+}
+.notice code {
+  background: rgba(0,0,0,.35); padding: 2px 7px; border-radius: 6px;
+  font-size: 12px; color: #fcd34d; font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 18px;
+}
+.span-4  { grid-column: span 4; }
+.span-5  { grid-column: span 5; }
+.span-7  { grid-column: span 7; }
+.span-8  { grid-column: span 8; }
+.span-12 { grid-column: span 12; }
+
+/* ============================================================
+   CARD
+   ============================================================ */
+.card {
+  position: relative;
+  background: linear-gradient(180deg, rgba(255,255,255,.055), rgba(255,255,255,.018));
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 18px 20px 20px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.card::before {
+  content: '';
+  position: absolute; top: 0; left: 12%; right: 12%; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(34,211,238,.5), transparent);
+}
+
+.card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 16px;
+}
+.card-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: .13em;
+  text-transform: uppercase; color: var(--dim);
+}
+
+/* ============================================================
+   TANK
+   ============================================================ */
+.tank-stage {
+  display: flex; align-items: stretch; justify-content: center;
+  gap: 14px; padding: 6px 0 2px;
+}
+
+.tank {
+  position: relative;
+  width: 156px; height: 268px;
+  border-radius: 16px 16px 22px 22px;
+  border: 2px solid rgba(125, 200, 255, .26);
+  background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(0,0,0,.4));
+  overflow: hidden;
+  box-shadow:
+    inset 0 0 46px rgba(0,0,0,.7),
+    0 0 60px rgba(34,211,238,.07);
+  flex: 0 0 auto;
+}
+
+/* water body */
+.tank-fill {
+  --w-top: #38bdf8;
+  --w-bot: #1d4ed8;
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: 55%;
+  background: linear-gradient(180deg, var(--w-top) 0%, var(--w-bot) 100%);
+  box-shadow: 0 0 34px rgba(34,211,238,.42);
+  transition: height 1s cubic-bezier(.4, 0, .2, 1), background .6s ease;
+}
+
+/* waves */
+.waves {
+  position: absolute; top: -16px; left: 0;
+  width: 200%; height: 32px;
+  animation: waveMove 5.5s linear infinite;
+  pointer-events: none;
+}
+.waves.w2 {
+  top: -11px; height: 26px;
+  animation-duration: 8.5s;
+  animation-direction: reverse;
+  opacity: .5;
+}
+.waves svg { width: 100%; height: 100%; display: block; }
+.waves svg path { fill: var(--w-top); transition: fill .6s ease; }
+
+@keyframes waveMove {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+/* readout */
+.tank-readout {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  font-size: 34px; font-weight: 800; letter-spacing: -1.5px;
+  color: #fff;
+  text-shadow: 0 2px 16px rgba(0,0,0,.85), 0 0 34px rgba(0,0,0,.6);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.tank-scale {
+  display: flex; flex-direction: column; justify-content: space-between;
+  padding: 2px 0 4px;
+  font-size: 10.5px; font-weight: 600; color: var(--mute);
+  letter-spacing: .3px;
+}
+.tank-scale span { display: block; }
+
+.tank-badge {
+  padding: 5px 12px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .1em;
+  border: 1px solid; transition: .3s;
+}
+.tank-badge.normal { color: #22d3ee; border-color: rgba(34,211,238,.45); background: rgba(34,211,238,.12); }
+.tank-badge.empty  { color: #fbbf24; border-color: rgba(245,158,11,.45); background: rgba(245,158,11,.12); }
+.tank-badge.full   { color: #4ade80; border-color: rgba(34,197,94,.45);  background: rgba(34,197,94,.12); }
+
+/* ============================================================
+   STATUS TILES
+   ============================================================ */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.tile {
+  display: flex; align-items: center; gap: 13px;
+  padding: 14px 16px;
+  border-radius: 15px;
+  background: rgba(255,255,255,.032);
+  border: 1px solid var(--border);
+  transition: border-color .3s, background .3s, box-shadow .3s;
+}
+.tile .ico {
+  width: 40px; height: 40px; flex: 0 0 40px;
+  display: grid; place-items: center;
+  font-size: 18px; border-radius: 12px;
+  background: rgba(255,255,255,.055);
+  border: 1px solid rgba(255,255,255,.07);
+  transition: .3s;
+}
+.tile-label { font-size: 11px; color: var(--mute); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.tile-value { font-size: 16px; font-weight: 800; margin-top: 3px; letter-spacing: -.2px; transition: color .3s; }
+
+.tile.ok      { border-color: rgba(34,197,94,.32);  background: rgba(34,197,94,.07); }
+.tile.ok      .ico { background: rgba(34,197,94,.16);  border-color: rgba(34,197,94,.3); }
+.tile.ok      .tile-value { color: #4ade80; }
+
+.tile.danger  { border-color: rgba(239,68,68,.34);  background: rgba(239,68,68,.07); }
+.tile.danger  .ico { background: rgba(239,68,68,.16);  border-color: rgba(239,68,68,.3); }
+.tile.danger  .tile-value { color: #f87171; }
+
+.tile.warn    { border-color: rgba(245,158,11,.34); background: rgba(245,158,11,.07); }
+.tile.warn    .ico { background: rgba(245,158,11,.16); border-color: rgba(245,158,11,.3); }
+.tile.warn    .tile-value { color: #fbbf24; }
+
+.tile.info    { border-color: rgba(34,211,238,.32); background: rgba(34,211,238,.07); }
+.tile.info    .ico { background: rgba(34,211,238,.16); border-color: rgba(34,211,238,.3); }
+.tile.info    .tile-value { color: #22d3ee; }
+
+.status-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; margin-top: 14px; padding-top: 13px;
+  border-top: 1px dashed rgba(255,255,255,.08);
+  font-size: 11.5px; color: var(--mute);
+}
+.status-foot b { color: var(--dim); font-weight: 600; }
+
+/* ============================================================
+   CONTROL PANEL
+   ============================================================ */
+.lock-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  color: #fbbf24;
+  background: rgba(245,158,11,.12);
+  border: 1px solid rgba(245,158,11,.35);
+  transition: .3s;
+}
+.lock-chip.admin {
+  color: #4ade80;
+  background: rgba(34,197,94,.13);
+  border-color: rgba(34,197,94,.4);
+  box-shadow: 0 0 20px rgba(34,197,94,.18);
+}
+
+.ctl-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; padding: 14px 0;
+  border-bottom: 1px dashed rgba(255,255,255,.07);
+}
+.ctl-row:last-of-type { border-bottom: 0; }
+
+.ctl-label { font-size: 13.5px; font-weight: 700; letter-spacing: -.1px; }
+.ctl-sub   { font-size: 11.5px; color: var(--mute); margin-top: 3px; transition: color .3s; }
+.ctl-sub.hint { color: #fbbf24; }
+
+/* switch */
+.switch {
+  position: relative; flex: 0 0 62px;
+  width: 62px; height: 34px; padding: 0;
+  border-radius: 999px;
+  background: rgba(255,255,255,.08);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .25s, border-color .25s, opacity .2s;
+}
+.switch .knob {
+  position: absolute; top: 3px; left: 3px;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: #5b6b85;
+  transition: left .25s cubic-bezier(.4,0,.2,1), background .25s, box-shadow .25s;
+}
+.switch.on {
+  background: linear-gradient(135deg, rgba(34,211,238,.32), rgba(59,130,246,.32));
+  border-color: rgba(34,211,238,.55);
+}
+.switch.on .knob {
+  left: 31px;
+  background: linear-gradient(135deg, var(--cyan), var(--blue));
+  box-shadow: 0 0 16px rgba(34,211,238,.85);
+}
+.switch:disabled { opacity: .35; cursor: not-allowed; }
+
+/* segmented */
+.segmented {
+  display: inline-flex; gap: 4px; padding: 4px;
+  border-radius: 13px;
+  background: rgba(255,255,255,.05);
+  border: 1px solid var(--border);
+}
+.segmented button {
+  padding: 8px 17px;
+  border: 0; border-radius: 9px;
+  background: transparent; color: var(--dim);
+  font-family: inherit; font-size: 11.5px; font-weight: 800;
+  letter-spacing: .08em; cursor: pointer;
+  transition: .2s;
+}
+.segmented button.active {
+  background: linear-gradient(135deg, var(--cyan), var(--blue));
+  color: #04121c;
+  box-shadow: 0 6px 20px rgba(34,211,238,.38);
+}
+.segmented button:disabled { opacity: .4; cursor: not-allowed; }
+
+/* sliders */
+.ctl-block { padding: 14px 0; border-bottom: 1px dashed rgba(255,255,255,.07); }
+.ctl-block-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-bottom: 11px;
+}
+.ctl-val {
+  font-size: 13px; font-weight: 800; color: var(--cyan);
+  font-variant-numeric: tabular-nums;
+}
+
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  width: 100%; height: 6px; border-radius: 999px;
+  background: rgba(255,255,255,.11);
+  outline: none; cursor: pointer;
+  transition: opacity .2s;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--cyan), var(--blue));
+  box-shadow: 0 0 14px rgba(34,211,238,.75);
+  cursor: pointer; border: 2px solid #04121c;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%; border: 2px solid #04121c;
+  background: linear-gradient(135deg, var(--cyan), var(--blue));
+  box-shadow: 0 0 14px rgba(34,211,238,.75);
+  cursor: pointer;
+}
+input[type="range"]:disabled { opacity: .35; cursor: not-allowed; }
+
+/* emergency */
+.btn-emergency {
+  width: 100%; margin-top: 18px; padding: 15px;
+  border-radius: 14px; border: 1px solid rgba(239,68,68,.5);
+  font-family: inherit; font-size: 13.5px; font-weight: 800;
+  letter-spacing: .09em; color: #fff; cursor: pointer;
+  background: linear-gradient(135deg, rgba(239,68,68,.92), rgba(190,18,60,.92));
+  box-shadow: 0 12px 34px rgba(239,68,68,.26);
+  transition: transform .15s, box-shadow .25s, background .3s, border-color .3s, opacity .2s;
+}
+.btn-emergency:hover:not(:disabled) { box-shadow: 0 14px 40px rgba(239,68,68,.45); }
+.btn-emergency:active:not(:disabled) { transform: translateY(1px); }
+.btn-emergency:disabled { opacity: .3; cursor: not-allowed; box-shadow: none; }
+.btn-emergency.unlock {
+  border-color: rgba(34,197,94,.55);
+  background: linear-gradient(135deg, rgba(34,197,94,.92), rgba(13,148,136,.92));
+  box-shadow: 0 12px 34px rgba(34,197,94,.26);
+}
+.btn-emergency.unlock:hover:not(:disabled) { box-shadow: 0 14px 40px rgba(34,197,94,.45); }
+
+/* ============================================================
+   LOGS
+   ============================================================ */
+.logs {
+  display: flex; flex-direction: column; gap: 8px;
+  max-height: 372px; overflow-y: auto;
+  padding-right: 5px;
+  scrollbar-gutter: stable;
+}
+
+.log-item {
+  display: flex; gap: 11px; align-items: flex-start;
+  padding: 11px 13px;
+  border-radius: 13px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.06);
+  animation: slideIn .3s ease;
+}
+.log-item.by-admin {
+  background: rgba(34,211,238,.055);
+  border-color: rgba(34,211,238,.2);
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-7px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.log-ico {
+  flex: 0 0 28px; width: 28px; height: 28px;
+  display: grid; place-items: center;
+  font-size: 13px; border-radius: 9px;
+  background: rgba(255,255,255,.055);
+  border: 1px solid rgba(255,255,255,.07);
+}
+.log-body { min-width: 0; flex: 1; }
+.log-action {
+  font-size: 12.5px; font-weight: 600; line-height: 1.45;
+  color: #dce6f7; word-break: break-word;
+}
+.log-meta {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  margin-top: 5px; font-size: 10.5px; color: var(--mute);
+  font-variant-numeric: tabular-nums;
+}
+.tag {
+  padding: 2px 8px; border-radius: 6px;
+  font-size: 9.5px; font-weight: 800; letter-spacing: .07em;
+}
+.tag-esp   { background: rgba(59,130,246,.18); color: #93c5fd; border: 1px solid rgba(59,130,246,.32); }
+.tag-admin { background: rgba(34,211,238,.18); color: #67e8f9; border: 1px solid rgba(34,211,238,.32); }
+
+.log-empty {
+  padding: 34px 12px; text-align: center;
+  font-size: 12.5px; color: var(--mute);
+}
+
+.pill {
+  padding: 4px 11px; border-radius: 999px;
+  font-size: 11px; font-weight: 800;
+  background: rgba(255,255,255,.06);
+  border: 1px solid var(--border);
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 200;
+  display: grid; place-items: center; padding: 20px;
+  background: rgba(3, 6, 12, .74);
+  backdrop-filter: blur(9px);
+  -webkit-backdrop-filter: blur(9px);
+  animation: fadeIn .18s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.modal {
+  width: min(430px, 100%);
+  padding: 28px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, #111c30, #0a1120);
+  border: 1px solid rgba(255,255,255,.12);
+  box-shadow: 0 34px 90px rgba(0,0,0,.66);
+  animation: popIn .22s cubic-bezier(.34,1.4,.64,1);
+}
+@keyframes popIn {
+  from { opacity: 0; transform: scale(.94) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal h3 {
+  font-size: 18px; font-weight: 800; letter-spacing: -.3px;
+  display: flex; align-items: center; gap: 9px;
+}
+.modal p { font-size: 12.5px; color: var(--dim); margin-top: 7px; line-height: 1.6; }
+
+.modal input[type="password"] {
+  width: 100%; margin-top: 18px; padding: 13px 15px;
+  border-radius: 12px;
+  background: rgba(0,0,0,.4);
+  border: 1px solid rgba(255,255,255,.13);
+  color: var(--text); font-family: inherit; font-size: 14px; letter-spacing: 1px;
+  outline: none; transition: border-color .2s, box-shadow .2s;
+}
+.modal input[type="password"]:focus {
+  border-color: rgba(34,211,238,.6);
+  box-shadow: 0 0 0 4px rgba(34,211,238,.11);
+}
+
+.modal-err {
+  min-height: 17px; margin-top: 9px;
+  font-size: 12px; color: #f87171; font-weight: 600;
+}
+
+.modal-actions {
+  display: flex; gap: 10px; justify-content: flex-end;
+  margin-top: 18px;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1080px) {
+  .span-4, .span-5, .span-7, .span-8 { grid-column: span 12; }
+  .logs { max-height: 300px; }
+}
+
+@media (max-width: 640px) {
+  .wrap { padding: 16px 14px 60px; }
+  .topbar { padding: 11px 14px; }
+  .brand h1 { font-size: 14.5px; }
+  .brand p { display: none; }
+  .logo { width: 38px; height: 38px; flex-basis: 38px; font-size: 19px; }
+  .tiles { grid-template-columns: 1fr; }
+  .ctl-row { flex-wrap: wrap; }
+  .card { padding: 16px; }
+  .tank { width: 132px; height: 232px; }
+  .tank-readout { font-size: 28px; }
+}
+</style>
 </head>
 <body>
 
-    <!-- Header -->
-    <header id="header">
-        <div class="container navbar">
-            <a href="#" class="logo">
-                <i class="fa-solid fa-cube"></i>
-                Summer Play-Lab
-            </a>
-            <ul class="nav-links" id="navLinks">
-                <li><a href="#about" class="nav-item">Về Chúng Tôi</a></li>
-                <li><a href="#programs" class="nav-item">Chương Trình</a></li>
-                <li><a href="#benefits" class="nav-item">Lợi Ích</a></li>
-                <li><a href="#services" class="nav-item">Dịch Vụ</a></li>
-                <li><a href="#faq" class="nav-item">Hỏi Đáp</a></li>
-                <li><a href="#register" class="btn btn-primary" style="padding: 10px 24px;">Đăng Ký</a></li>
-            </ul>
-            <button class="mobile-menu-btn" id="mobileBtn">
-                <i class="fa-solid fa-bars-staggered"></i>
-            </button>
-        </div>
-    </header>
-
-    <!-- Hero Section -->
-    <section class="hero" id="hero">
-        <div class="container hero-content">
-            <div class="hero-badge">✨ Trại hè kỹ năng 2026 ✨</div>
-            <h1>Chơi thật – Học thật<br><span>Không màn hình</span></h1>
-            <p>Trải nghiệm học tập thực tế, đánh thức đa trí thông minh dành riêng cho trẻ từ 6-11 tuổi tại Hà Nội. Nơi con được là chính mình, an toàn và phát triển toàn diện.</p>
-            <div class="hero-btns">
-                <a href="#register" class="btn btn-primary">Đăng Ký Ngay <i class="fa-solid fa-arrow-right"></i></a>
-                <a href="#programs" class="btn btn-outline">Xem Chương Trình</a>
-            </div>
-        </div>
-    </section>
-
-    <!-- About Section -->
-    <section class="section-padding" id="about">
-        <div class="container about-grid">
-            <div class="about-image-wrapper">
-                <i class="fa-solid fa-face-smile-beam"></i>
-                <h3>Let's Play & Learn</h3>
-            </div>
-            <div class="about-features">
-                <div>
-                    <h2 class="section-title" style="text-align: left; margin-bottom: 10px;">Summer Play-Lab là gì?</h2>
-                    <p style="color: var(--text-light); font-size: 1.1rem; margin-bottom: 20px;">Một trung tâm trải nghiệm hoàn toàn mới, loại bỏ sự phụ thuộc vào công nghệ để tập trung vào sự phát triển tự nhiên của trẻ.</p>
-                </div>
-                
-                <div class="feature-item">
-                    <div class="feature-icon"><i class="fa-solid fa-mobile-screen-button"></i></div>
-                    <div class="feature-content">
-                        <h3>Không thiết bị điện tử</h3>
-                        <p>Môi trường 100% "digital-detox". Không iPad, không điện thoại, giúp con kết nối chân thực với thế giới xung quanh.</p>
-                    </div>
-                </div>
-
-                <div class="feature-item">
-                    <div class="feature-icon"><i class="fa-solid fa-sun"></i></div>
-                    <div class="feature-content">
-                        <h3>Sáng học hỏi - Chiều hoạt động</h3>
-                        <p>Lộ trình thiết kế khoa học: Buổi sáng kích thích tư duy logic, buổi chiều giải phóng năng lượng qua thể thao.</p>
-                    </div>
-                </div>
-
-                <div class="feature-item">
-                    <div class="feature-icon"><i class="fa-solid fa-clipboard-list"></i></div>
-                    <div class="feature-content">
-                        <h3>Báo cáo tiến độ mỗi ngày</h3>
-                        <p>Hệ thống Daily Lab-Log giúp ba mẹ luôn theo sát từng bước tiến, nụ cười và cảm xúc của con yêu mỗi ngày.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Programs Section -->
-    <section class="section-padding programs-bg" id="programs">
-        <div class="container">
-            <h2 class="section-title">Chương Trình Trải Nghiệm</h2>
-            <p class="section-subtitle">Được thiết kế chuyên biệt dựa trên phương pháp giáo dục hiện đại, phù hợp với từng giai đoạn phát triển tâm sinh lý của trẻ.</p>
-            
-            <div class="programs-grid">
-                <div class="program-card">
-                    <div class="program-icon"><i class="fa-solid fa-microscope"></i></div>
-                    <h3>STEM Lab</h3>
-                    <p>Khám phá Khoa học, Công nghệ, Kỹ thuật, Toán học qua các thí nghiệm vui nhộn, thực hành làm mô hình tự động.</p>
-                </div>
-                
-                <div class="program-card">
-                    <div class="program-icon"><i class="fa-solid fa-palette"></i></div>
-                    <h3>Art & Music</h3>
-                    <p>Đánh thức khiếu thẩm mỹ qua hội họa, làm gốm, cảm thụ âm nhạc và các lớp kịch nghệ hóa thân đầy sáng tạo.</p>
-                </div>
-                
-                <div class="program-card">
-                    <div class="program-icon"><i class="fa-solid fa-volleyball"></i></div>
-                    <h3>Sports & Outdoor</h3>
-                    <p>Rèn luyện thể lực, tính kỷ luật và tinh thần đồng đội qua các giải đấu mini, bóng rổ, bơi lội và cắm trại.</p>
-                </div>
-                
-                <div class="program-card">
-                    <div class="program-icon"><i class="fa-solid fa-puzzle-piece"></i></div>
-                    <h3>Traditional Games</h3>
-                    <p>Giữ gìn bản sắc văn hóa với ô ăn quan, nhảy sạp, làm diều... rèn luyện sự khéo léo và trân trọng truyền thống.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Benefits Section -->
-    <section class="section-padding" id="benefits">
-        <div class="container">
-            <h2 class="section-title">Hành Trang Con Đạt Được</h2>
-            <p class="section-subtitle">Chỉ sau một mùa hè, ba mẹ sẽ bất ngờ trước sự trưởng thành vượt bậc của con.</p>
-            
-            <div class="benefits-grid">
-                <div class="benefit-card">
-                    <div class="benefit-icon"><i class="fa-solid fa-eye-slash"></i></div>
-                    <div class="benefit-content">
-                        <h4>Giảm nghiện màn hình</h4>
-                        <p>Trẻ tự giác tìm kiếm niềm vui từ các hoạt động thực tế, dần từ bỏ thói quen lướt điện thoại vô thức.</p>
-                    </div>
-                </div>
-                
-                <div class="benefit-card">
-                    <div class="benefit-icon"><i class="fa-solid fa-seedling"></i></div>
-                    <div class="benefit-content">
-                        <h4>Tăng cường kỹ năng sống</h4>
-                        <p>Tự lập trong sinh hoạt cá nhân, biết cách xử lý tình huống và thích nghi nhanh với môi trường mới.</p>
-                    </div>
-                </div>
-                
-                <div class="benefit-card">
-                    <div class="benefit-icon"><i class="fa-solid fa-heart-pulse"></i></div>
-                    <div class="benefit-content">
-                        <h4>Phát triển thể chất</h4>
-                        <p>Vận động liên tục giúp con ăn ngon miệng, ngủ sâu giấc, tăng cường sức đề kháng và chiều cao.</p>
-                    </div>
-                </div>
-                
-                <div class="benefit-card">
-                    <div class="benefit-icon"><i class="fa-solid fa-users"></i></div>
-                    <div class="benefit-content">
-                        <h4>Mở rộng giao tiếp xã hội</h4>
-                        <p>Phá vỡ sự tự ti, mạnh dạn kết bạn mới, học cách lắng nghe, chia sẻ và làm việc nhóm hiệu quả.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Daily Lab-Log Section -->
-    <section id="lab-log">
-        <div class="container">
-            <div class="lab-log-container">
-                <div class="lab-log-content">
-                    <h2>Daily Lab-Log</h2>
-                    <p>Nhật ký điện tử độc quyền dành riêng cho phụ huynh. Ba mẹ không cần lo lắng con làm gì ở trại hè, vì mọi khoảnh khắc đều được ghi nhận.</p>
-                    <ul class="lab-log-list">
-                        <li><i class="fa-solid fa-camera"></i> Hình ảnh sinh hoạt chân thực nhất</li>
-                        <li><i class="fa-solid fa-face-smile"></i> Biểu đồ cảm xúc của con trong ngày</li>
-                        <li><i class="fa-solid fa-medal"></i> Thành tựu nổi bật con đạt được</li>
-                    </ul>
-                </div>
-                
-                <div class="mock-card">
-                    <div class="mock-header">
-                        <span class="mock-date">Thứ Ba, 16/06/2026</span>
-                        <span class="mock-badge">Báo cáo của Bo (8 tuổi)</span>
-                    </div>
-                    <div class="mock-body">
-                        <p><strong>🚀 Hoạt động STEM:</strong> Hôm nay Bo đã tự tay lắp ráp và phóng thành công tên lửa nước! Con rất tập trung, biết cách chia sẻ dụng cụ và nhường nhịn bạn bè.</p>
-                        <p><strong>🍱 Bữa trưa:</strong> Con ăn hết suất cơm cuộn, tự dọn dẹp khay gọn gàng.</p>
-                        <div class="mock-emojis">
-                            🤩 🚀 🌟 👏
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Services Section -->
-    <section class="section-padding services-bg" id="services">
-        <div class="container">
-            <h2 class="section-title">Gói Dịch Vụ Của Chúng Tôi</h2>
-            <p class="section-subtitle">Linh hoạt theo thời gian biểu của gia đình, mang đến trải nghiệm xuyên suốt.</p>
-            
-            <div class="services-grid">
-                <div class="service-card">
-                    <div class="service-img">
-                        <i class="fa-solid fa-campground"></i>
-                    </div>
-                    <div class="service-info">
-                        <h3>Bán Trú Mùa Hè</h3>
-                        <p>Thứ Hai - Thứ Sáu (8:00 - 17:00). Bao gồm ăn trưa và quà xế. Lộ trình toàn diện, thay thế hoàn toàn thời gian trông trẻ tại nhà.</p>
-                    </div>
-                </div>
-                
-                <div class="service-card">
-                    <div class="service-img">
-                        <i class="fa-solid fa-school"></i>
-                    </div>
-                    <div class="service-info">
-                        <h3>Lớp Ngoại Khóa Tối</h3>
-                        <p>Các lớp học chuyên sâu theo sở thích (STEM, Art, Dance) diễn ra vào các buổi tối trong tuần (18:00 - 19:30).</p>
-                    </div>
-                </div>
-                
-                <div class="service-card">
-                    <div class="service-img">
-                        <i class="fa-solid fa-calendar-star"></i>
-                    </div>
-                    <div class="service-info">
-                        <h3>Workshop Cuối Tuần</h3>
-                        <p>Sự kiện diễn ra sáng Chủ Nhật định kỳ, thiết kế riêng để cả gia đình cùng tham gia, tạo kỷ niệm gắn kết tình thân.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-    <!-- FAQ Section -->
-    <section class="section-padding faq-bg" id="faq">
-        <div class="container">
-            <h2 class="section-title">Câu Hỏi Thường Gặp</h2>
-            <p class="section-subtitle">Giải đáp những thắc mắc chung của ba mẹ về Summer Play-Lab.</p>
-            
-            <div class="faq-container">
-                <div class="faq-item">
-                    <div class="faq-question">
-                        <span>Trại hè có nhận trẻ chưa biết tự xúc ăn không?</span>
-                        <i class="fa-solid fa-chevron-down faq-icon"></i>
-                    </div>
-                    <div class="faq-answer">
-                        <div class="faq-answer-inner">
-                            Dạ có ạ. Đội ngũ giáo viên và bảo mẫu sẽ hướng dẫn và rèn luyện kỹ năng tự lập cho con trong suốt khóa học. Chỉ sau 1-2 tuần, đa số các bé đều tự giác trong bữa ăn.
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="faq-item">
-                    <div class="faq-question">
-                        <span>Con có được dùng điện thoại gọi cho ba mẹ không?</span>
-                        <i class="fa-solid fa-chevron-down faq-icon"></i>
-                    </div>
-                    <div class="faq-answer">
-                        <div class="faq-answer-inner">
-                            Với tiêu chí "Không màn hình", trung tâm không khuyến khích trẻ mang điện thoại. Nếu cần liên lạc khẩn cấp, ba mẹ có thể gọi trực tiếp qua hotline của quản lý trại hè. Tình hình của bé sẽ được cập nhật liên tục qua Daily Lab-Log.
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="faq-item">
-                    <div class="faq-question">
-                        <span>Lớp học có tối đa bao nhiêu bé?</span>
-                        <i class="fa-solid fa-chevron-down faq-icon"></i>
-                    </div>
-                    <div class="faq-answer">
-                        <div class="faq-answer-inner">
-                            Để đảm bảo chất lượng và sự tương tác tốt nhất, mỗi lớp học giới hạn tối đa 15 bé, được phụ trách bởi 1 giáo viên chính và 1 trợ giảng.
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="faq-item">
-                    <div class="faq-question">
-                        <span>Chế độ dinh dưỡng của các bé như thế nào?</span>
-                        <i class="fa-solid fa-chevron-down faq-icon"></i>
-                    </div>
-                    <div class="faq-answer">
-                        <div class="faq-answer-inner">
-                            Thực đơn được thiết kế bởi chuyên gia dinh dưỡng, đảm bảo cung cấp đủ năng lượng cho các hoạt động thể chất. Bao gồm 1 bữa trưa đa dạng (luân phiên món Á - Âu) và 1 bữa xế chiều (trái cây, sữa, bánh ngọt tự làm).
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Registration Form Section -->
-    <section class="section-padding registration" id="register">
-        <div class="container">
-            <div class="reg-container">
-                <h2 class="section-title" style="margin-bottom: 15px;">Đăng Ký Nhận Tư Vấn</h2>
-                <p class="section-subtitle" style="margin-bottom: 40px; color: var(--text-dark);">Hãy để lại thông tin, đội ngũ của chúng tôi sẽ liên hệ để xếp lịch tham quan và tư vấn lộ trình phù hợp nhất cho bé.</p>
-                
-                <form id="regForm">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="parentName">Họ tên phụ huynh *</label>
-                            <input type="text" id="parentName" class="form-control" placeholder="Nhập họ tên ba/mẹ" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="phone">Số điện thoại *</label>
-                            <input type="tel" id="phone" class="form-control" placeholder="Ví dụ: 0912345678" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="childName">Họ tên bé *</label>
-                            <input type="text" id="childName" class="form-control" placeholder="Nhập họ tên bé" required>
-                        </div>
-                        
-                        <div class="form-group">
-                            <label for="childAge">Tuổi của bé *</label>
-                            <select id="childAge" class="form-control" required>
-                                <option value="" disabled selected>-- Chọn tuổi của bé --</option>
-                                <option value="6">6 tuổi</option>
-                                <option value="7">7 tuổi</option>
-                                <option value="8">8 tuổi</option>
-                                <option value="9">9 tuổi</option>
-                                <option value="10">10 tuổi</option>
-                                <option value="11">11 tuổi</option>
-                            </select>
-                        </div>
-                        
-                        <div class="form-group full-width">
-                            <button type="submit" class="btn btn-primary form-btn">Gửi Thông Tin Đăng Ký <i class="fa-solid fa-paper-plane"></i></button>
-                        </div>
-                    </div>
-                </form>
-                
-                <div class="success-message" id="successMsg">
-                    <i class="fa-solid fa-circle-check" style="font-size: 3rem; margin-bottom: 16px; display: block;"></i>
-                    Tuyệt vời! Thông tin đã được gửi thành công.<br>
-                    <span style="font-size: 1rem; font-weight: 600; color: var(--text-dark); margin-top: 8px; display: block;">Summer Play-Lab sẽ liên hệ với bạn trong vòng 24h tới.</span>
-                </div>
-            </div>
-        </div>
-    </section>
-    <!-- Floating Contact -->
-    <div class="floating-contact">
-        <a href="tel:0901234567" class="float-btn float-phone" title="Gọi ngay">
-            <i class="fa-solid fa-phone"></i>
-        </a>
-        <a href="https://zalo.me/0901234567" target="_blank" class="float-btn float-zalo" title="Chat Zalo">
-            <i class="fa-solid fa-comment-dots"></i>
-        </a>
+<!-- ================= TOPBAR ================= -->
+<header class="topbar">
+  <div class="brand">
+    <div class="logo">💧</div>
+    <div>
+      <h1>Trạm Cấp Nước Thông Minh</h1>
+      <p>ESP32 · Firebase Realtime DB · IoT Dashboard</p>
     </div>
+  </div>
 
-    <!-- Footer -->
-    <footer>
-        <div class="container">
-            <div class="footer-grid">
-                <div class="footer-brand">
-                    <h2><i class="fa-solid fa-cube" style="color: var(--secondary);"></i> Summer Play-Lab</h2>
-                    <p>Khởi nguồn cho một mùa hè năng động. Nơi trẻ được tự do khám phá, học hỏi kiến thức thực tế và phát triển các kỹ năng sống thiết yếu.</p>
-                    <div class="social-icons">
-                        <a href="#" class="social-icon"><i class="fa-brands fa-facebook-f"></i></a>
-                        <a href="#" class="social-icon"><i class="fa-brands fa-youtube"></i></a>
-                        <a href="#" class="social-icon"><i class="fa-brands fa-tiktok"></i></a>
-                    </div>
-                </div>
-                
-                <div class="footer-links-wrap">
-                    <h3 class="footer-title">Khám Phá</h3>
-                    <ul class="footer-links">
-                        <li><a href="#about">Về chúng tôi</a></li>
-                        <li><a href="#programs">Chương trình đào tạo</a></li>
-                        <li><a href="#benefits">Lợi ích mang lại</a></li>
-                        <li><a href="#services">Các gói dịch vụ</a></li>
-                    </ul>
-                </div>
-                
-                <div class="footer-contact-wrap">
-                    <h3 class="footer-title">Liên Hệ</h3>
-                    <ul class="footer-contact">
-                        <li>
-                            <i class="fa-solid fa-location-dot"></i>
-                            <span>123 Đường Thanh Niên, Phường Yên Phụ, Quận Tây Hồ, Hà Nội</span>
-                        </li>
-                        <li>
-                            <i class="fa-solid fa-phone"></i>
-                            <span>Hotline: 090 123 4567</span>
-                        </li>
-                        <li>
-                            <i class="fa-solid fa-envelope"></i>
-                            <span>Email: hello@summerplaylab.vn</span>
-                        </li>
-                    </ul>
-                </div>
+  <div class="topbar-right">
+    <div class="conn-badge warn" id="connBadge">
+      <span class="dot"></span>
+      <span id="connText">Đang kết nối…</span>
+    </div>
+    <button class="btn ghost" id="authBtn">🔐 Đăng nhập Admin</button>
+  </div>
+</header>
+
+<!-- ================= MAIN ================= -->
+<main class="wrap">
+
+  <div class="notice" id="demoNotice" hidden>
+    ⚠️&nbsp; Đang chạy <b>chế độ DEMO mô phỏng</b> — chưa cấu hình Firebase.
+    Mở file và điền <code>FIREBASE_CONFIG</code> (đặc biệt là <code>databaseURL</code>) để kết nối ESP32 thật.
+  </div>
+
+  <div class="grid">
+
+    <!-- ---------- TANK ---------- -->
+    <section class="card span-4">
+      <div class="card-head">
+        <div class="card-title">🪣 Bồn chứa</div>
+        <span class="tank-badge normal" id="tankBadge">NORMAL</span>
+      </div>
+
+      <div class="tank-stage">
+        <div class="tank" id="tankEl">
+          <div class="tank-fill" id="tankFill">
+            <div class="waves">
+              <svg viewBox="0 0 1200 40" preserveAspectRatio="none">
+                <path d="M0,20 C100,4 200,36 300,20 C400,4 500,36 600,20 C700,4 800,36 900,20 C1000,4 1100,36 1200,20 L1200,40 L0,40 Z"/>
+              </svg>
             </div>
-            
-            <div class="footer-bottom">
-                <p>&copy; 2026 Summer Play-Lab Hanoi. All rights reserved.</p>
+            <div class="waves w2">
+              <svg viewBox="0 0 1200 40" preserveAspectRatio="none">
+                <path d="M0,20 C100,36 200,4 300,20 C400,36 500,4 600,20 C700,36 800,4 900,20 C1000,36 1100,4 1200,20 L1200,40 L0,40 Z"/>
+              </svg>
             </div>
+          </div>
+          <div class="tank-readout" id="levelPct">--%</div>
         </div>
-    </footer>
 
-    <!-- JavaScript -->
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Mobile Menu Toggle
-            const mobileBtn = document.getElementById('mobileBtn');
-            const navLinks = document.getElementById('navLinks');
-            const navItems = document.querySelectorAll('.nav-item');
+        <div class="tank-scale">
+          <span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span>
+        </div>
+      </div>
+    </section>
 
-            mobileBtn.addEventListener('click', () => {
-                navLinks.classList.toggle('active');
-                if(navLinks.classList.contains('active')) {
-                    mobileBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-                } else {
-                    mobileBtn.innerHTML = '<i class="fa-solid fa-bars-staggered"></i>';
-                }
-            });
+    <!-- ---------- STATUS ---------- -->
+    <section class="card span-8">
+      <div class="card-head">
+        <div class="card-title">📡 Trạng thái hệ thống</div>
+      </div>
 
-            // Close mobile menu when clicking a link
-            navItems.forEach(item => {
-                item.addEventListener('click', () => {
-                    navLinks.classList.remove('active');
-                    mobileBtn.innerHTML = '<i class="fa-solid fa-bars-staggered"></i>';
-                });
-            });
+      <div class="tiles">
+        <div class="tile" id="tileLevel">
+          <div class="ico">💧</div>
+          <div>
+            <div class="tile-label">Mực nước</div>
+            <div class="tile-value" id="valLevel">—</div>
+          </div>
+        </div>
 
-            // Sticky Navbar Styling on Scroll
-            const header = document.getElementById('header');
-            window.addEventListener('scroll', () => {
-                if (window.scrollY > 50) {
-                    header.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1)';
-                    header.style.padding = '0';
-                } else {
-                    header.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)';
-                    header.style.padding = '5px 0';
-                }
-            });
+        <div class="tile" id="tilePump">
+          <div class="ico">⚙️</div>
+          <div>
+            <div class="tile-label">Máy bơm</div>
+            <div class="tile-value" id="valPump">—</div>
+          </div>
+        </div>
 
-            // Form Validation and Mock Submission
-            const regForm = document.getElementById('regForm');
-            const successMsg = document.getElementById('successMsg');
+        <div class="tile" id="tileMode">
+          <div class="ico">🔁</div>
+          <div>
+            <div class="tile-label">Chế độ</div>
+            <div class="tile-value" id="valMode">—</div>
+          </div>
+        </div>
 
-            regForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                // Simple Phone Validation (Vietnamese format rough check)
-                const phone = document.getElementById('phone').value;
-                const phoneRegex = /^(0[3|5|7|8|9])+([0-9]{8})$/;
-                
-                if (!phoneRegex.test(phone)) {
-                    alert('Vui lòng nhập số điện thoại hợp lệ (Ví dụ: 0912345678).');
-                    document.getElementById('phone').focus();
-                    return;
-                }
-                
-                // Hide form and show success message
-                regForm.style.display = 'none';
-                successMsg.style.display = 'block';
-                
-                // Optional: Scroll to success message
-                successMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            });
+        <div class="tile" id="tileEmg">
+          <div class="ico">🛡️</div>
+          <div>
+            <div class="tile-label">Khoá khẩn cấp</div>
+            <div class="tile-value" id="valEmg">—</div>
+          </div>
+        </div>
+      </div>
 
-            // FAQ Accordion
-            const faqItems = document.querySelectorAll('.faq-item');
-            faqItems.forEach(item => {
-                const question = item.querySelector('.faq-question');
-                question.addEventListener('click', () => {
-                    // Đóng các FAQ khác
-                    faqItems.forEach(otherItem => {
-                        if (otherItem !== item && otherItem.classList.contains('active')) {
-                            otherItem.classList.remove('active');
-                            otherItem.querySelector('.faq-answer').style.maxHeight = null;
-                        }
-                    });
+      <div class="status-foot">
+        <span>Cập nhật lần cuối: <b id="valUpdated">—</b></span>
+        <span>Nguồn: <b id="valSource">ESP32</b></span>
+      </div>
+    </section>
 
-                    // Toggle FAQ hiện tại
-                    item.classList.toggle('active');
-                    const answer = item.querySelector('.faq-answer');
-                    if (item.classList.contains('active')) {
-                        answer.style.maxHeight = answer.scrollHeight + "px";
-                    } else {
-                        answer.style.maxHeight = null;
-                    }
-                });
-            });
-        });
-    </script>
-</body>
-</html>
+    <!-- ---------- CONTROL ---------- -->
+    <section class="card span-7">
+      <div class="card-head">
+        <div class="card-title">🎛️ Bảng điều khiển</div>
+        <span class="lock-chip" id="lockChip">🔒 Chỉ Admin</span>
+      </div>
+
+      <div class="ctl-row">
+        <div>
+          <div class="ctl-label">Máy bơm</div>
+          <div class="ctl-sub" id="pumpSub">Đang dừng</div>
+        </div>
+        <button class="switch" id="pumpSwitch" disabled aria-label="Bật tắt bơm">
+          <span class="knob"></span>
+        </button>
+      </div>
+
+      <div class="ctl-row">
+        <div>
+          <div class="ctl-label">Chế độ hoạt động</div>
+          <div class="ctl-sub">AUTO: theo phao tự động · MANUAL: điều khiển tay</div>
+        </div>
+        <div class="segmented" id="modeSeg">
+          <button type="button" data-mode="AUTO" disabled>AUTO</button>
+          <button type="button" data-mode="MANUAL" disabled>MANUAL</button>
+        </div>
+      </div>
+
+      <div class="ctl-block">
+        <div class="ctl-block-head">
+          <span class="ctl-label">Ngưỡng BẬT bơm</span>
+          <span class="ctl-val" id="startVal">30%</span>
+        </div>
+        <input type="range" id="startRange" min="5" max="80" step="5" value="30" disabled />
+      </div>
+
+      <div class="ctl-block">
+        <div class="ctl-block-head">
+          <span class="ctl-label">Ngưỡng DỪNG bơm</span>
+          <span class="ctl-val" id="stopVal">90%</span>
+        </div>
+        <input type="range" id="stopRange" min="20" max="100" step="5" value="90" disabled />
+      </div>
+
+      <button class="btn-emergency" id="emergencyBtn" disabled>⛔ DỪNG KHẨN CẤP</button>
+    </section>
+
+    <!-- ---------- LOGS ---------- -->
+    <section class="card span-5">
+      <div class="card-head">
+        <div class="card-title">📜 Nhật ký sự kiện</div>
+        <span class="pill" id="logCount">0</span>
+      </div>
+      <div class="logs" id="logs">
+        <div class="log-empty">Chưa có sự kiện nào.</div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- ================= LOGIN MODAL ================= -->
+<div class="modal-backdrop" id="loginModal" hidden>
+  <div class="modal">
+    <h3>🔐 Đăng nhập Quản trị viên</h3>
+    <p>Nhập mật khẩu Admin để mở khoá bảng điều khiển, chuyển chế độ và sử dụng nút Dừng khẩn cấp.</p>
+
+    <input type="password" id="pwdInput" placeholder="Mật khẩu Admin" autocomplete="current-password" />
+
+    <div class="modal-err" id="loginErr"></div>
+
+    <div class="modal-actions">
+      <button class="btn ghost" id="cancelLogin" type="button">Huỷ</button>
+      <button class="btn primary" id="confirmLogin" type="button">Đăng nhập</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     APPLICATION SCRIPT
+     ============================================================ -->
+<script type="module">
+/* ================================================================
+   1. CẤU HÌNH
+   ================================================================ */
+
+/**
+ * ⚠️ THAY CÁC GIÁ TRỊ DƯỚI ĐÂY BẰNG THÔNG TIN FIREBASE CỦA BẠN
+ * (Firebase Console → Project Settings → Your apps → Web app)
+ * Bắt buộc phải có `databaseURL` trỏ tới Realtime Database.
+ */
+const firebaseConfig = {
+  apiKey: "AIzaSyDFesYG6e6xZ4Bko66gpU-GaxrCPxzgRIc",
+  authDomain: "ai-news-cleaner.firebaseapp.com",
+databaseURL:       "https://ai-news-cleaner-default-rtdb.asia-southeast1.firebasedatabase.app/",
+  projectId: "ai-news-cleaner",
+  storageBucket: "ai-news-cleaner.firebasestorage.app",
+  messagingSenderId: "473766624243",
+  appId: "1:473766624243:web:fc92a0d1b3d267b17d7086",
+  measurementId: "G-RJHZR6QBQE"
+};
+const DB_ROOT = "system";
+
+/**
+ * Mật khẩu Admin = "admin@2026" (đã mã hoá Base64 để tránh lộ plaintext trong source).
+ * ⚠️ LƯU Ý BẢO MẬT: Đây chỉ là lớp bảo vệ phía client, KHÔNG phải bảo mật thật.
+ * Với hệ thống production, hãy dùng Firebase Authentication + Security Rules:
+ *   { "rules": { "system": { "control": { ".write": "auth != null" } } } }
+ */
+const ADMIN_PASSWORD_B64 = "YWRtaW5AMjAyNg=="; // "admin@2026"
+
+const LOG_LIMIT = 60;
+
+/** Tự động phát hiện chế độ DEMO nếu chưa cấu hình Firebase */
+const DEMO_MODE = FIREBASE_CONFIG.databaseURL.includes("YOUR_PROJECT");
+
+
+/* ================================================================
+   2. STATE
+   ================================================================ */
+const state = {
+  status: {
+    water_level_state:  "NORMAL",
+    water_level_percent: 55,
+    pump_running:       false,
+    current_mode:       "AUTO",
+    emergency_lock:     false,
+    last_updated:       null
+  },
+  control:  { pump_cmd: false, mode_cmd: "AUTO", emergency_cmd: false },
+  settings: { start_level: 30, stop_level: 90 },
+  logs:     [],
+  isAdmin:  false,
+  source:   DEMO_MODE ? "demo" : "live",
+  ready:    false
+};
+
+/** Tham chiếu module Firebase (chỉ có ở chế độ live) */
+let fb = null;
+let demoTimer = null;
+let logSig = "";
+let sliderActive = false;
+
+
+/* ================================================================
+   3. DOM REFS
+   ================================================================ */
+const $ = (id) => document.getElementById(id);
+
+const els = {
+  connBadge: $("connBadge"),
+  connText:  $("connText"),
+  authBtn:   $("authBtn"),
+
+  demoNotice: $("demoNotice"),
+
+  tankEl:    $("tankEl"),
+  tankFill:  $("tankFill"),
+  tankBadge: $("tankBadge"),
+  levelPct:  $("levelPct"),
+
+  tileLevel: $("tileLevel"),
+  tilePump:  $("tilePump"),
+  tileMode:  $("tileMode"),
+  tileEmg:   $("tileEmg"),
+  valLevel:  $("valLevel"),
+  valPump:   $("valPump"),
+  valMode:   $("valMode"),
+  valEmg:    $("valEmg"),
+  valUpdated:$("valUpdated"),
+  valSource: $("valSource"),
+
+  lockChip:     $("lockChip"),
+  pumpSwitch:   $("pumpSwitch"),
+  pumpSub:      $("pumpSub"),
+  modeSeg:      $("modeSeg"),
+  startRange:   $("startRange"),
+  stopRange:    $("stopRange"),
+  startVal:     $("startVal"),
+  stopVal:      $("stopVal"),
+  emergencyBtn: $("emergencyBtn"),
+
+  logs:     $("logs"),
+  logCount: $("logCount"),
+
+  loginModal:   $("loginModal"),
+  pwdInput:     $("pwdInput"),
+  loginErr:     $("loginErr"),
+  cancelLogin:  $("cancelLogin"),
+  confirmLogin: $("confirmLogin")
+};
+
+
+/* ================================================================
+   4. HELPERS
+   ================================================================ */
+const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
+const pad2  = (n) => String(n).padStart(2, "0");
+
+function formatTimestamp(d = new Date()) {
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())} ` +
+         `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+function parseDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === "number") {
+    // Hỗ trợ cả giây (10 chữ số) và mili-giây (13 chữ số)
+    return new Date(value < 1e12 ? value * 1000 : value);
+  }
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function relativeTime(date) {
+  if (!date) return "—";
+  const diff = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (diff < 0)    return "vừa xong";
+  if (diff < 5)    return "vừa xong";
+  if (diff < 60)   return `${diff} giây trước`;
+  if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
+  return formatTimestamp(date);
+}
+
+/** Lấy % mực nước (ưu tiên field water_level_percent, fallback theo state) */
+function getLevelPercent() {
+  const s = state.status;
+  if (typeof s.water_level_percent === "number" && !isNaN(s.water_level_percent)) {
+    return clamp(s.water_level_percent, 0, 100);
+  }
+  switch (s.water_level_state) {
+    case "EMPTY": return 8;
+    case "FULL":  return 96;
+    default:      return 55;
+  }
+}
+
+
+/* ================================================================
+   5. KẾT NỐI FIREBASE (v9 Modular - dynamic import)
+   ================================================================ */
+async function connectFirebase() {
+  const V = "10.12.5";
+  const appMod = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
+  const dbMod  = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-database.js`);
+
+  const app = appMod.initializeApp(FIREBASE_CONFIG);
+  const db  = dbMod.getDatabase(app);
+
+  fb = {
+    db,
+    ref:        dbMod.ref,
+    onValue:    dbMod.onValue,
+    set:        dbMod.set,
+    push:       dbMod.push,
+    query:      dbMod.query,
+    limitToLast:dbMod.limitToLast
+  };
+
+  /* --- Trạng thái (ESP32 ghi) --- */
+  fb.onValue(fb.ref(db, `${DB_ROOT}/status`), (snap) => {
+    const v = snap.val() || {};
+    state.status = { ...state.status, ...v };
+    state.ready = true;
+    render();
+  }, (err) => setConn("danger", "Lỗi: " + err.code));
+
+  /* --- Lệnh điều khiển --- */
+  fb.onValue(fb.ref(db, `${DB_ROOT}/control`), (snap) => {
+    state.control = { ...state.control, ...(snap.val() || {}) };
+    renderControls();
+  });
+
+  /* --- Cài đặt ngưỡng --- */
+  fb.onValue(fb.ref(db, `${DB_ROOT}/settings`), (snap) => {
+    if (snap.exists()) {
+      state.settings = { ...state.settings, ...snap.val() };
+      renderControls();
+    }
+  });
+
+  /* --- Nhật ký (chỉ lấy 60 bản ghi mới nhất) --- */
+  fb.onValue(
+    fb.query(fb.ref(db, `${DB_ROOT}/logs`), fb.limitToLast(LOG_LIMIT)),
+    (snap) => {
+      const arr = [];
+      snap.forEach((child) => arr.push({ id: child.key, ...child.val() }));
+      arr.reverse(); // mới nhất lên đầu
+      state.logs = arr;
+      renderLogs();
+    }
+  );
+
+  /* --- Theo dõi kết nối --- */
+  fb.onValue(fb.ref(db, ".info/connected"), (snap) => {
+    setConn(snap.val() ? "ok" : "warn", snap.val() ? "Đã kết nối" : "Mất kết nối");
+  });
+}
+
+
+/* ================================================================
+   6. GHI DỮ LIỆU LÊN FIREBASE
+   ================================================================ */
+async function writeControl(key, value) {
+  state.control[key] = value;
+
+  if (state.source === "live" && fb) {
+    try {
+      await fb.set(fb.ref(fb.db, `${DB_ROOT}/control/${key}`), value);
+    } catch (e) {
+      console.error("[writeControl]", e);
+      addLog("Admin", `⚠️ Gửi lệnh thất bại: ${key} = ${value}`);
+    }
+  } else {
+    applyDemoControl(key, value);
+  }
+  render();
+}
+
+async function writeSetting(key, value) {
+  state.settings[key] = value;
+
+  if (state.source === "live" && fb) {
+    try {
+      await fb.set(fb.ref(fb.db, `${DB_ROOT}/settings/${key}`), value);
+    } catch (e) {
+      console.error("[writeSetting]", e);
+    }
+  }
+  renderControls();
+}
+
+/** Ghi nhật ký sự kiện */
+function addLog(actor, action) {
+  const entry = {
+    timestamp: formatTimestamp(),
+    actor,
+    action,
+    ts: Date.now()
+  };
+
+  if (state.source === "live" && fb) {
+    fb.push(fb.ref(fb.db, `${DB_ROOT}/logs`), entry).catch(console.error);
+  } else {
+    state.logs.unshift({ id: "demo-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7), ...entry });
+    state.logs = state.logs.slice(0, LOG_LIMIT);
+    renderLogs();
+  }
+}
+
+
+/* ================================================================
+   7. DEMO MODE — MÔ PHỎNG ESP32
+   ================================================================ */
+function applyDemoControl(key, value) {
+  const s = state.status;
+  if (key === "pump_cmd") {
+    s.pump_running = Boolean(value) && !s.emergency_lock;
+  } else if (key === "mode_cmd") {
+    s.current_mode = value;
+  } else if (key === "emergency_cmd") {
+    s.emergency_lock = Boolean(value);
+    if (s.emergency_lock) s.pump_running = false;
+  }
+  s.last_updated = Date.now();
+}
+
+function startDemo() {
+  state.source = "demo";
+  state.status = {
+    water_level_state:   "NORMAL",
+    water_level_percent: 46,
+    pump_running:        false,
+    current_mode:        "AUTO",
+    emergency_lock:      false,
+    last_updated:        Date.now()
+  };
+  state.control = { pump_cmd: false, mode_cmd: "AUTO", emergency_cmd: false };
+
+  addLog("ESP32", "Khởi động hệ thống · Chế độ DEMO mô phỏng");
+  setConn("info", "DEMO · Mô phỏng");
+
+  demoTimer = setInterval(demoTick, 1200);
+}
+
+function demoTick() {
+  const s   = state.status;
+  const cfg = state.settings;
+
+  let pct = typeof s.water_level_percent === "number" ? s.water_level_percent : 50;
+
+  if (s.emergency_lock) {
+    s.pump_running = false;
+  } else {
+    // Bơm chạy → nước dâng; bơm dừng → nước tiêu thụ giảm dần
+    pct += s.pump_running ? 2.5 : -1.3;
+    pct += (Math.random() - 0.5) * 0.5;
+  }
+  pct = clamp(pct, 0, 100);
+
+  s.water_level_percent = pct;
+  s.water_level_state   = pct <= 15 ? "EMPTY" : pct >= 90 ? "FULL" : "NORMAL";
+
+  /* Logic tự động hoá (mô phỏng firmware ESP32) */
+  if (!s.emergency_lock && s.current_mode === "AUTO") {
+    if (!s.pump_running && pct <= cfg.start_level) {
+      s.pump_running = true;
+      addLog("ESP32", `Kích hoạt bơm tự động — mực nước ${pct.toFixed(0)}% ≤ ngưỡng ${cfg.start_level}%`);
+    } else if (s.pump_running && pct >= cfg.stop_level) {
+      s.pump_running = false;
+      addLog("ESP32", `Dừng bơm tự động — mực nước ${pct.toFixed(0)}% ≥ ngưỡng ${cfg.stop_level}%`);
+    }
+  }
+
+  s.last_updated = Date.now();
+  state.control.pump_cmd = s.pump_running;
+  state.control.mode_cmd = s.current_mode;
+
+  render();
+}
+
+
+/* ================================================================
+   8. RENDER
+   ================================================================ */
+function setConn(kind, text) {
+  const map = {
+    ok:      ["Đã kết nối",      "ok"],
+    warn:    ["Mất kết nối",     "warn"],
+    danger:  ["Lỗi kết nối",     "danger"],
+    info:    ["DEMO · Mô phỏng", "info"]
+  };
+  const [defaultText, cls] = map[kind] || ["—", ""];
+  els.connText.textContent  = text || defaultText;
+  els.connBadge.className   = "conn-badge " + cls;
+}
+
+function render() {
+  renderTank();
+  renderStatus();
+  renderControls();
+  renderLogs();
+}
+
+/* ---------- TANK ---------- */
+function renderTank() {
+  const pct = getLevelPercent();
+  const st  = state.status.water_level_state || "NORMAL";
+
+  els.tankFill.style.height = pct + "%";
+  els.levelPct.textContent  = Math.round(pct) + "%";
+
+  els.tankBadge.textContent = st;
+  els.tankBadge.className   = "tank-badge " + st.toLowerCase();
+
+  // Đổi màu nước theo trạng thái
+  let top = "#38bdf8", bot = "#1d4ed8";
+  if (st === "EMPTY")      { top = "#fbbf24"; bot = "#b45309"; }
+  else if (st === "FULL")  { top = "#34d399"; bot = "#0d9488"; }
+
+  els.tankEl.style.setProperty("--w-top", top);
+  els.tankEl.style.setProperty("--w-bot", bot);
+}
+
+/* ---------- STATUS TILES ---------- */
+function renderStatus() {
+  const s = state.status;
+
+  /* Mực nước */
+  const levelMap = {
+    EMPTY:  { text: "CẠN NƯỚC",     cls: "danger" },
+    NORMAL: { text: "BÌNH THƯỜNG",  cls: "info"   },
+    FULL:   { text: "ĐẦY",          cls: "ok"     }
+  };
+  const lv = levelMap[s.water_level_state] || { text: "—", cls: "" };
+  els.valLevel.textContent = lv.text;
+  els.tileLevel.className  = "tile " + lv.cls;
+
+  /* Máy bơm */
+  const pumpOn = Boolean(s.pump_running);
+  els.valPump.textContent = pumpOn ? "ĐANG BƠM" : "ĐANG DỪNG";
+  els.tilePump.className  = "tile " + (pumpOn ? "ok" : "");
+
+  /* Chế độ */
+  const isAuto = s.current_mode === "AUTO";
+  els.valMode.textContent = isAuto ? "TỰ ĐỘNG" : "THỦ CÔNG";
+  els.tileMode.className  = "tile " + (isAuto ? "info" : "warn");
+
+  /* Khoá khẩn cấp */
+  const emg = Boolean(s.emergency_lock);
+  els.valEmg.textContent = emg ? "ĐANG KHOÁ" : "BÌNH THƯỜNG";
+  els.tileEmg.className  = "tile " + (emg ? "danger" : "ok");
+
+  /* Footer */
+  els.valUpdated.textContent = relativeTime(parseDate(s.last_updated));
+  els.valSource.textContent  = state.source === "demo" ? "Mô phỏng (Demo)" : "ESP32";
+}
+
+/* ---------- CONTROLS ---------- */
+function renderControls() {
+  const admin  = state.isAdmin;
+  const s      = state.status;
+  const locked = Boolean(s.emergency_lock);
+  const isAuto = s.current_mode === "AUTO";
+  const pumpOn = Boolean(s.pump_running);
+
+  /* Lock chip */
+  els.lockChip.textContent = admin ? "🔓 Quyền Admin" : "🔒 Chỉ Admin";
+  els.lockChip.className   = "lock-chip" + (admin ? " admin" : "");
+
+  /* Pump switch */
+  els.pumpSwitch.classList.toggle("on", pumpOn);
+  els.pumpSwitch.disabled = !admin || locked || isAuto;
+
+  if (locked) {
+    els.pumpSub.textContent = "Hệ thống đang bị khoá khẩn cấp";
+    els.pumpSub.className   = "ctl
