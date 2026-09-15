@@ -811,6 +811,9 @@ const DB_ROOT = "system";
 const ADMIN_PASSWORD_B64 = "MDAwMDAw";
 const LOG_LIMIT = 60;
 
+/** Write-lock: sau khi ghi setting, bỏ qua onValue trong 2 giây */
+const SETTINGS_WRITE_LOCK_MS = 2000;
+
 const DEMO_MODE = FIREBASE_CONFIG.databaseURL.includes("YOUR_PROJECT");
 
 /* ================================================================
@@ -836,8 +839,9 @@ const state = {
 
 let fb = null;
 let demoTimer = null;
-let draggingSlider = null;     // "start" | "stop" | null
+let draggingSlider = null;        // "start" | "stop" | null
 let pendingLogs = [];
+let settingsWriteLock = 0;        // timestamp — ignore server settings updates until this time
 
 /* ================================================================
    3. DOM REFS
@@ -969,17 +973,25 @@ async function connectFirebase() {
     renderControls();
   });
 
-  /* Cài đặt ngưỡng — không ghi đè khi đang kéo slider */
+  /* ================================================================
+     CÀI ĐẶT NGƯỠNG — CÓ WRITE-LOCK CHỐNG GHI ĐÈ
+     ================================================================ */
   fb.onValue(fb.ref(db, `${DB_ROOT}/settings`), (snap) => {
-    if (snap.exists()) {
-      const v = snap.val();
-      if (typeof v.start_level === "number") state.settings.start_level = v.start_level;
-      if (typeof v.stop_level  === "number") state.settings.stop_level  = v.stop_level;
-      renderControls();
+    if (!snap.exists()) return;
+
+    // Bỏ qua mọi update từ server trong lúc đang "khoá" (vừa ghi xong)
+    if (Date.now() < settingsWriteLock) {
+      console.log("[settings] Server update bị bỏ qua (đang trong write-lock)");
+      return;
     }
+
+    const v = snap.val();
+    if (typeof v.start_level === "number") state.settings.start_level = v.start_level;
+    if (typeof v.stop_level  === "number") state.settings.stop_level  = v.stop_level;
+    renderControls();
   });
 
-  /* Nhật ký — merge với pending logs để không nhấp nháy */
+  /* Nhật ký — merge với pending logs */
   fb.onValue(
     fb.query(fb.ref(db, `${DB_ROOT}/logs`), fb.limitToLast(LOG_LIMIT)),
     (snap) => {
@@ -997,7 +1009,6 @@ async function connectFirebase() {
 
       state.serverLogs = arr;
 
-      // Xoá pending log nào đã được xác nhận trên server
       const serverKeys = new Set(arr.map(l => l.id));
       pendingLogs = pendingLogs.filter(
         l => !l.serverKey || !serverKeys.has(l.serverKey)
@@ -1032,44 +1043,46 @@ async function writeControl(key, value) {
   render();
 }
 
+/** Ghi setting — có write-lock chống onValue ghi đè */
 async function writeSetting(key, value) {
+  const previous = state.settings[key];
   state.settings[key] = value;
+
+  // KHOÁ: bỏ qua mọi onValue từ server trong 2s để tránh race condition
+  settingsWriteLock = Date.now() + SETTINGS_WRITE_LOCK_MS;
 
   if (state.source === "live" && fb) {
     try {
       await fb.set(fb.ref(fb.db, `${DB_ROOT}/settings/${key}`), value);
+      console.log(`[settings] Đã ghi ${key} = ${value}`);
     } catch (e) {
       console.error("[writeSetting]", e);
+      // Ghi thất bại → khôi phục giá trị cũ
+      state.settings[key] = previous;
+      addLog("Admin", `⚠️ Lưu ngưỡng thất bại: ${key} = ${value}`);
     }
   }
+
   renderControls();
 }
 
 /* ================================================================
-   ADD LOG — Optimistic UI + Dedup với server
+   ADD LOG — Optimistic UI + Dedup
    ================================================================ */
 function addLog(actor, action) {
   const ts = Date.now();
-  const entry = {
-    timestamp: formatTimestamp(),
-    actor,
-    action,
-    ts
-  };
+  const entry = { timestamp: formatTimestamp(), actor, action, ts };
 
   const tempId = "local-" + ts + "-" + Math.random().toString(36).slice(2, 6);
   const localEntry = { id: tempId, ...entry };
 
-  // 1. Optimistic: đẩy ngay vào pending để hiển thị tức thì
   pendingLogs.unshift(localEntry);
   if (pendingLogs.length > LOG_LIMIT) pendingLogs.length = LOG_LIMIT;
   mergeAndRenderLogs();
 
-  // 2. Push lên Firebase + gắn serverKey để dedup
   if (state.source === "live" && fb) {
     const newRef = fb.push(fb.ref(fb.db, `${DB_ROOT}/logs`));
     localEntry.serverKey = newRef.key;
-
     fb.set(newRef, entry).catch((e) => {
       console.error("[addLog]", e);
       pendingLogs = pendingLogs.filter(l => l.id !== tempId);
@@ -1080,14 +1093,11 @@ function addLog(actor, action) {
 
 function mergeAndRenderLogs() {
   const merged = [...state.serverLogs, ...pendingLogs];
-
   const pendingServerKeys = new Set(
     pendingLogs.filter(l => l.serverKey).map(l => l.serverKey)
   );
   const filtered = merged.filter(l => !pendingServerKeys.has(l.id));
-
   filtered.sort((a, b) => (Number(b.ts) || 0) - (Number(a.ts) || 0));
-
   state.logs = filtered.slice(0, LOG_LIMIT);
   renderLogs();
 }
@@ -1262,7 +1272,7 @@ function renderControls() {
     btn.disabled = !admin || locked;
   });
 
-  // Chỉ cập nhật giá trị slider khi KHÔNG đang kéo
+  // Chỉ cập nhật slider khi KHÔNG đang kéo
   if (!draggingSlider) {
     els.startRange.value = state.settings.start_level ?? 30;
     els.stopRange.value  = state.settings.stop_level  ?? 90;
@@ -1311,13 +1321,15 @@ function renderLogs() {
 }
 
 /* ================================================================
-   9. SLIDER NGƯỠNG BƠM — Phiên bản sửa lỗi
+   9. SLIDER NGƯỠNG BƠM — Chuẩn hoá + write-lock
    ================================================================ */
-function saveSliderValues(sourceSlider) {
+
+/** Commit giá trị 2 slider lên Firebase */
+function commitThresholds(sourceSlider) {
   let start = Number(els.startRange.value);
   let stop  = Number(els.stopRange.value);
 
-  // Interlock: đảm bảo start < stop, khoảng cách tối thiểu 5
+  // Interlock: đảm bảo start < stop (cách nhau tối thiểu 5)
   if (start >= stop) {
     if (sourceSlider === els.startRange) {
       start = clamp(stop - 5, 5, 80);
@@ -1328,47 +1340,57 @@ function saveSliderValues(sourceSlider) {
     }
   }
 
+  // Hiển thị lại text (đảm bảo khớp giá trị cuối)
   els.startVal.textContent = start + "%";
   els.stopVal.textContent  = stop + "%";
 
-  // Ghi lên Firebase nếu giá trị thay đổi
-  if (state.settings.start_level !== start) writeSetting("start_level", start);
-  if (state.settings.stop_level  !== stop)  writeSetting("stop_level",  stop);
-
-  addLog("Admin", `Cập nhật ngưỡng bơm: ${start}% - ${stop}%`);
+  // Chỉ ghi khi giá trị thay đổi
+  if (state.settings.start_level !== start) {
+    writeSetting("start_level", start);
+    addLog("Admin", `Cập nhật ngưỡng BẬT bơm: ${start}%`);
+  }
+  if (state.settings.stop_level !== stop) {
+    writeSetting("stop_level", stop);
+    addLog("Admin", `Cập nhật ngưỡng DỪNG bơm: ${stop}%`);
+  }
 }
 
-function bindSlider(slider, key) {
-  // 1. Bắt đầu kéo → đánh dấu
+/* --- Gắn sự kiện cho slider --- */
+[els.startRange, els.stopRange].forEach((slider) => {
+  const which = slider === els.startRange ? "start" : "stop";
+
+  // Bắt đầu kéo
   slider.addEventListener("pointerdown", () => {
-    draggingSlider = key;
+    draggingSlider = which;
   });
 
-  // 2. Đang kéo → chỉ cập nhật số hiển thị, KHÔNG clamp, KHÔNG ghi Firebase
+  // Trong lúc kéo: chỉ cập nhật text, KHÔNG clamp, KHÔNG ghi Firebase
   slider.addEventListener("input", () => {
     els.startVal.textContent = els.startRange.value + "%";
     els.stopVal.textContent  = els.stopRange.value  + "%";
   });
 
-  // 3. Keyboard (mũi tên, Page Up/Down) — lưu khi nhả phím
-  slider.addEventListener("keyup", () => {
-    saveSliderValues(slider);
+  // Chuẩn: sự kiện `change` bắn khi user nhả chuột (kể cả khi nhả ngoài slider)
+  slider.addEventListener("change", () => {
+    draggingSlider = null;
+    commitThresholds(slider);
   });
-}
 
-bindSlider(els.startRange, "start");
-bindSlider(els.stopRange,  "stop");
+  // Hỗ trợ bàn phím
+  slider.addEventListener("keyup", () => {
+    commitThresholds(slider);
+  });
+});
 
-// 4. Thả chuột / ngón tay ở BẤT KỲ đâu trong document → kết thúc kéo & lưu
+/* Fallback: một số trình duyệt không bắn `change` khi nhả ngoài slider */
 document.addEventListener("pointerup", () => {
   if (draggingSlider) {
-    const src = draggingSlider === "start" ? els.startRange : els.stopRange;
-    draggingSlider = null;
-    saveSliderValues(src);
+    const slider = draggingSlider === "start" ? els.startRange : els.stopRange;
+    // Bắn change thủ công → handler phía trên sẽ clear draggingSlider
+    slider.dispatchEvent(new Event("change", { bubbles: true }));
   }
 });
 
-// 5. Trình duyệt hủy sự kiện (tab switch, mất focus) → reset state
 document.addEventListener("pointercancel", () => {
   draggingSlider = null;
 });
