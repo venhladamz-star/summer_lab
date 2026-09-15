@@ -46,7 +46,6 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-/* Scrollbar */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 999px; }
@@ -86,7 +85,6 @@ body {
 
 .topbar-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 
-/* Connection badge */
 .conn-badge {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 7px 13px; border-radius: 999px;
@@ -223,7 +221,6 @@ body {
   flex: 0 0 auto;
 }
 
-/* water body */
 .tank-fill {
   --w-top: #38bdf8;
   --w-bot: #1d4ed8;
@@ -234,7 +231,6 @@ body {
   transition: height 1s cubic-bezier(.4, 0, .2, 1), background .6s ease;
 }
 
-/* waves */
 .waves {
   position: absolute; top: -16px; left: 0;
   width: 200%; height: 32px;
@@ -255,7 +251,6 @@ body {
   to   { transform: translateX(-50%); }
 }
 
-/* readout */
 .tank-readout {
   position: absolute; inset: 0;
   display: grid; place-items: center;
@@ -365,7 +360,6 @@ body {
 .ctl-sub   { font-size: 11.5px; color: var(--mute); margin-top: 3px; transition: color .3s; }
 .ctl-sub.hint { color: #fbbf24; }
 
-/* switch */
 .switch {
   position: relative; flex: 0 0 62px;
   width: 62px; height: 34px; padding: 0;
@@ -392,7 +386,6 @@ body {
 }
 .switch:disabled { opacity: .35; cursor: not-allowed; }
 
-/* segmented */
 .segmented {
   display: inline-flex; gap: 4px; padding: 4px;
   border-radius: 13px;
@@ -414,7 +407,6 @@ body {
 }
 .segmented button:disabled { opacity: .4; cursor: not-allowed; }
 
-/* sliders */
 .ctl-block { padding: 14px 0; border-bottom: 1px dashed rgba(255,255,255,.07); }
 .ctl-block-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -431,6 +423,7 @@ input[type="range"] {
   background: rgba(255,255,255,.11);
   outline: none; cursor: pointer;
   transition: opacity .2s;
+  touch-action: none;
 }
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
@@ -447,7 +440,6 @@ input[type="range"]::-moz-range-thumb {
 }
 input[type="range"]:disabled { opacity: .35; cursor: not-allowed; }
 
-/* emergency */
 .btn-emergency {
   width: 100%; margin-top: 18px; padding: 15px;
   border-radius: 14px; border: 1px solid rgba(239,68,68,.5);
@@ -835,7 +827,8 @@ const state = {
   },
   control:  { pump_cmd: false, mode_cmd: "AUTO", emergency_cmd: false },
   settings: { start_level: 30, stop_level: 90 },
-  logs:     [],
+  logs:       [],
+  serverLogs: [],
   isAdmin:  false,
   source:   DEMO_MODE ? "demo" : "live",
   ready:    false
@@ -843,7 +836,8 @@ const state = {
 
 let fb = null;
 let demoTimer = null;
-let sliderActive = false;
+let draggingSlider = null;     // "start" | "stop" | null
+let pendingLogs = [];
 
 /* ================================================================
    3. DOM REFS
@@ -975,36 +969,53 @@ async function connectFirebase() {
     renderControls();
   });
 
-  /* Cài đặt ngưỡng */
+  /* Cài đặt ngưỡng — không ghi đè khi đang kéo slider */
   fb.onValue(fb.ref(db, `${DB_ROOT}/settings`), (snap) => {
     if (snap.exists()) {
-      state.settings = { ...state.settings, ...snap.val() };
+      const v = snap.val();
+      if (typeof v.start_level === "number") state.settings.start_level = v.start_level;
+      if (typeof v.stop_level  === "number") state.settings.stop_level  = v.stop_level;
       renderControls();
     }
   });
 
-  /* Nhật ký */
+  /* Nhật ký — merge với pending logs để không nhấp nháy */
   fb.onValue(
     fb.query(fb.ref(db, `${DB_ROOT}/logs`), fb.limitToLast(LOG_LIMIT)),
     (snap) => {
       const arr = [];
-      snap.forEach((child) => arr.push({ id: child.key, ...child.val() }));
-      arr.reverse();
-      state.logs = arr;
-      renderLogs();
+      snap.forEach((child) => {
+        const val = child.val() || {};
+        arr.push({
+          id:        child.key,
+          timestamp: val.timestamp,
+          actor:     val.actor,
+          action:    val.action,
+          ts:        Number(val.ts) || 0
+        });
+      });
+
+      state.serverLogs = arr;
+
+      // Xoá pending log nào đã được xác nhận trên server
+      const serverKeys = new Set(arr.map(l => l.id));
+      pendingLogs = pendingLogs.filter(
+        l => !l.serverKey || !serverKeys.has(l.serverKey)
+      );
+
+      mergeAndRenderLogs();
     }
   );
 }
 
 /* ================================================================
-   6. GHI DỮ LIỆU LÊN FIREBASE (ĐÃ TỐI ƯU OPTIMISTIC UPDATE)
+   6. GHI DỮ LIỆU LÊN FIREBASE
    ================================================================ */
 async function writeControl(key, value) {
   state.control[key] = value;
 
-  // Cập nhật "ảo" ngay lập tức để UI phản hồi không có độ trễ
-  if (key === "pump_cmd") state.status.pump_running = value;
-  if (key === "mode_cmd") state.status.current_mode = value;
+  if (key === "pump_cmd")      state.status.pump_running   = value;
+  if (key === "mode_cmd")      state.status.current_mode   = value;
   if (key === "emergency_cmd") state.status.emergency_lock = value;
 
   if (state.source === "live" && fb) {
@@ -1017,8 +1028,7 @@ async function writeControl(key, value) {
   } else {
     applyDemoControl(key, value);
   }
-  
-  // Vẽ lại UI lập tức sau khi thao tác
+
   render();
 }
 
@@ -1035,30 +1045,51 @@ async function writeSetting(key, value) {
   renderControls();
 }
 
-/* THÊM TỐI ƯU: Đưa log lên màn hình không độ trễ trước khi push lên Firebase */
+/* ================================================================
+   ADD LOG — Optimistic UI + Dedup với server
+   ================================================================ */
 function addLog(actor, action) {
+  const ts = Date.now();
   const entry = {
     timestamp: formatTimestamp(),
     actor,
     action,
-    ts: Date.now()
+    ts
   };
 
-  // 1. OPTIMISTIC UPDATE: Đẩy thẳng vào mảng local
-  const tempId = "local-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
-  state.logs.unshift({ id: tempId, ...entry });
-  
-  if (state.logs.length > LOG_LIMIT) {
-    state.logs = state.logs.slice(0, LOG_LIMIT);
-  }
-  
-  // Vẽ lại bảng log ngay lập tức
-  renderLogs();
+  const tempId = "local-" + ts + "-" + Math.random().toString(36).slice(2, 6);
+  const localEntry = { id: tempId, ...entry };
 
-  // 2. Sau đó mới đẩy lên Firebase
+  // 1. Optimistic: đẩy ngay vào pending để hiển thị tức thì
+  pendingLogs.unshift(localEntry);
+  if (pendingLogs.length > LOG_LIMIT) pendingLogs.length = LOG_LIMIT;
+  mergeAndRenderLogs();
+
+  // 2. Push lên Firebase + gắn serverKey để dedup
   if (state.source === "live" && fb) {
-    fb.push(fb.ref(fb.db, `${DB_ROOT}/logs`), entry).catch(console.error);
+    const newRef = fb.push(fb.ref(fb.db, `${DB_ROOT}/logs`));
+    localEntry.serverKey = newRef.key;
+
+    fb.set(newRef, entry).catch((e) => {
+      console.error("[addLog]", e);
+      pendingLogs = pendingLogs.filter(l => l.id !== tempId);
+      mergeAndRenderLogs();
+    });
   }
+}
+
+function mergeAndRenderLogs() {
+  const merged = [...state.serverLogs, ...pendingLogs];
+
+  const pendingServerKeys = new Set(
+    pendingLogs.filter(l => l.serverKey).map(l => l.serverKey)
+  );
+  const filtered = merged.filter(l => !pendingServerKeys.has(l.id));
+
+  filtered.sort((a, b) => (Number(b.ts) || 0) - (Number(a.ts) || 0));
+
+  state.logs = filtered.slice(0, LOG_LIMIT);
+  renderLogs();
 }
 
 /* ================================================================
@@ -1079,6 +1110,9 @@ function applyDemoControl(key, value) {
 
 function startDemo() {
   state.source = "demo";
+  state.serverLogs = [];
+  pendingLogs = [];
+
   state.status = {
     water_level_state:   "NORMAL",
     water_level_percent: 46,
@@ -1204,11 +1238,9 @@ function renderControls() {
   const isAuto = s.current_mode === "AUTO";
   const pumpOn = Boolean(s.pump_running);
 
-  /* Lock chip */
   els.lockChip.textContent = admin ? "🔓 Quyền Admin" : "🔒 Chỉ Admin";
   els.lockChip.className   = "lock-chip" + (admin ? " admin" : "");
 
-  /* Pump switch */
   els.pumpSwitch.classList.toggle("on", pumpOn);
   els.pumpSwitch.disabled = !admin || locked || isAuto;
 
@@ -1223,7 +1255,6 @@ function renderControls() {
     els.pumpSub.className   = "ctl-sub";
   }
 
-  /* Segmented buttons */
   const segBtns = els.modeSeg.querySelectorAll("button");
   segBtns.forEach((btn) => {
     const m = btn.getAttribute("data-mode");
@@ -1231,17 +1262,16 @@ function renderControls() {
     btn.disabled = !admin || locked;
   });
 
-  /* Range sliders */
-  if (!sliderActive) {
+  // Chỉ cập nhật giá trị slider khi KHÔNG đang kéo
+  if (!draggingSlider) {
     els.startRange.value = state.settings.start_level ?? 30;
-    els.stopRange.value  = state.settings.stop_level ?? 90;
+    els.stopRange.value  = state.settings.stop_level  ?? 90;
     els.startVal.textContent = els.startRange.value + "%";
-    els.stopVal.textContent  = els.stopRange.value + "%";
+    els.stopVal.textContent  = els.stopRange.value  + "%";
   }
   els.startRange.disabled = !admin || locked;
   els.stopRange.disabled  = !admin || locked;
 
-  /* Emergency Button */
   els.emergencyBtn.disabled = !admin;
   if (locked) {
     els.emergencyBtn.textContent = "🔓 MỞ KHOÁ HỆ THỐNG";
@@ -1251,17 +1281,18 @@ function renderControls() {
     els.emergencyBtn.className   = "btn-emergency";
   }
 
-  /* Auth Button */
   els.authBtn.textContent = admin ? "🔓 Đăng xuất Admin" : "🔐 Đăng nhập Admin";
   els.authBtn.className   = admin ? "btn admin-on" : "btn ghost";
 }
 
 function renderLogs() {
   els.logCount.textContent = state.logs.length;
+
   if (!state.logs.length) {
     els.logs.innerHTML = `<div class="log-empty">Chưa có sự kiện nào.</div>`;
     return;
   }
+
   els.logs.innerHTML = state.logs.map((item) => {
     const isAdmin = item.actor === "Admin";
     return `
@@ -1280,7 +1311,70 @@ function renderLogs() {
 }
 
 /* ================================================================
-   9. EVENT LISTENERS
+   9. SLIDER NGƯỠNG BƠM — Phiên bản sửa lỗi
+   ================================================================ */
+function saveSliderValues(sourceSlider) {
+  let start = Number(els.startRange.value);
+  let stop  = Number(els.stopRange.value);
+
+  // Interlock: đảm bảo start < stop, khoảng cách tối thiểu 5
+  if (start >= stop) {
+    if (sourceSlider === els.startRange) {
+      start = clamp(stop - 5, 5, 80);
+      els.startRange.value = start;
+    } else {
+      stop = clamp(start + 5, 20, 100);
+      els.stopRange.value = stop;
+    }
+  }
+
+  els.startVal.textContent = start + "%";
+  els.stopVal.textContent  = stop + "%";
+
+  // Ghi lên Firebase nếu giá trị thay đổi
+  if (state.settings.start_level !== start) writeSetting("start_level", start);
+  if (state.settings.stop_level  !== stop)  writeSetting("stop_level",  stop);
+
+  addLog("Admin", `Cập nhật ngưỡng bơm: ${start}% - ${stop}%`);
+}
+
+function bindSlider(slider, key) {
+  // 1. Bắt đầu kéo → đánh dấu
+  slider.addEventListener("pointerdown", () => {
+    draggingSlider = key;
+  });
+
+  // 2. Đang kéo → chỉ cập nhật số hiển thị, KHÔNG clamp, KHÔNG ghi Firebase
+  slider.addEventListener("input", () => {
+    els.startVal.textContent = els.startRange.value + "%";
+    els.stopVal.textContent  = els.stopRange.value  + "%";
+  });
+
+  // 3. Keyboard (mũi tên, Page Up/Down) — lưu khi nhả phím
+  slider.addEventListener("keyup", () => {
+    saveSliderValues(slider);
+  });
+}
+
+bindSlider(els.startRange, "start");
+bindSlider(els.stopRange,  "stop");
+
+// 4. Thả chuột / ngón tay ở BẤT KỲ đâu trong document → kết thúc kéo & lưu
+document.addEventListener("pointerup", () => {
+  if (draggingSlider) {
+    const src = draggingSlider === "start" ? els.startRange : els.stopRange;
+    draggingSlider = null;
+    saveSliderValues(src);
+  }
+});
+
+// 5. Trình duyệt hủy sự kiện (tab switch, mất focus) → reset state
+document.addEventListener("pointercancel", () => {
+  draggingSlider = null;
+});
+
+/* ================================================================
+   10. EVENT LISTENERS
    ================================================================ */
 function handleLogin() {
   const entered = els.pwdInput.value.trim();
@@ -1329,40 +1423,9 @@ els.modeSeg.querySelectorAll("button").forEach((btn) => {
   btn.addEventListener("click", () => {
     if (!state.isAdmin) return;
     const m = btn.getAttribute("data-mode");
+    if (m === state.status.current_mode) return;
     writeControl("mode_cmd", m);
     addLog("Admin", `Chuyển sang chế độ ${m}`);
-  });
-});
-
-/* Sự kiện kéo thanh Slider đã được fix lỗi khóa chéo */
-[els.startRange, els.stopRange].forEach((slider) => {
-  slider.addEventListener("mousedown", () => { sliderActive = true; });
-  slider.addEventListener("touchstart", () => { sliderActive = true; });
-
-  slider.addEventListener("input", (e) => {
-    let start = Number(els.startRange.value);
-    let stop  = Number(els.stopRange.value);
-
-    // KHOÁ CHÉO (Interlock): Ngăn chặn 2 con trượt đụng nhau khi kéo
-    if (e.target === els.startRange && start >= stop) {
-      els.startRange.value = stop - 5;
-    }
-    if (e.target === els.stopRange && stop <= start) {
-      els.stopRange.value = start + 5;
-    }
-
-    els.startVal.textContent = els.startRange.value + "%";
-    els.stopVal.textContent  = els.stopRange.value + "%";
-  });
-
-  slider.addEventListener("change", () => {
-    sliderActive = false;
-    const start = Number(els.startRange.value);
-    const stop  = Number(els.stopRange.value);
-    
-    writeSetting("start_level", start);
-    writeSetting("stop_level", stop);
-    addLog("Admin", `Cập nhật ngưỡng bơm: ${start}% - ${stop}%`);
   });
 });
 
@@ -1374,7 +1437,7 @@ els.emergencyBtn.addEventListener("click", () => {
 });
 
 /* ================================================================
-   10. KHỞI TẠO HỆ THỐNG
+   11. KHỞI TẠO HỆ THỐNG
    ================================================================ */
 window.addEventListener("DOMContentLoaded", () => {
   render();
