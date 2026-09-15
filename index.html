@@ -815,8 +815,8 @@ const FIREBASE_CONFIG = {
 };
 const DB_ROOT = "system";
 
-/** Mật khẩu Admin: "admin@2026" */
-const ADMIN_PASSWORD_B64 = "YWRtaW5AMjAyNg==";
+/** Mật khẩu Admin: "000000" */
+const ADMIN_PASSWORD_B64 = "MDAwMDAw";
 const LOG_LIMIT = 60;
 
 const DEMO_MODE = FIREBASE_CONFIG.databaseURL.includes("YOUR_PROJECT");
@@ -1035,6 +1035,7 @@ async function writeSetting(key, value) {
   renderControls();
 }
 
+/* THÊM TỐI ƯU: Đưa log lên màn hình không độ trễ trước khi push lên Firebase */
 function addLog(actor, action) {
   const entry = {
     timestamp: formatTimestamp(),
@@ -1043,12 +1044,20 @@ function addLog(actor, action) {
     ts: Date.now()
   };
 
+  // 1. OPTIMISTIC UPDATE: Đẩy thẳng vào mảng local
+  const tempId = "local-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+  state.logs.unshift({ id: tempId, ...entry });
+  
+  if (state.logs.length > LOG_LIMIT) {
+    state.logs = state.logs.slice(0, LOG_LIMIT);
+  }
+  
+  // Vẽ lại bảng log ngay lập tức
+  renderLogs();
+
+  // 2. Sau đó mới đẩy lên Firebase
   if (state.source === "live" && fb) {
     fb.push(fb.ref(fb.db, `${DB_ROOT}/logs`), entry).catch(console.error);
-  } else {
-    state.logs.unshift({ id: "demo-" + Date.now() + "-" + Math.random().toString(36).slice(2, 7), ...entry });
-    state.logs = state.logs.slice(0, LOG_LIMIT);
-    renderLogs();
   }
 }
 
