@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Smart Water Station · HMI SCADA v6.6</title>
+<title>Smart Water Station · HMI SCADA v6.8</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -301,7 +301,7 @@ input[type="range"]:disabled{opacity:.4;cursor:not-allowed}
     <div class="logo">💧</div>
     <div>
       <h1>Trạm Cấp Nước · HMI Terminal</h1>
-      <p>ESP32 Controller v5.7 · Terminal v6.6 SCADA</p>
+      <p>ESP32 Controller v5.9 · Terminal v6.8 SCADA</p>
     </div>
   </div>
   <div class="topbar-right">
@@ -518,8 +518,7 @@ input[type="range"]:disabled{opacity:.4;cursor:not-allowed}
 
 <script type="module">
 /* ================================================================
-   HMI TERMINAL v6.6 — Chuẩn SCADA Thin-Client
-   - Sửa lỗi chờ kết nối khi lệch múi giờ NTP
+   HMI TERMINAL v6.8 — Chuẩn SCADA Thin-Client
    ================================================================ */
 
 const FIREBASE_CONFIG = {
@@ -535,7 +534,7 @@ const DB_ROOT = "system";
 const ADMIN_PASSWORD = "000000";
 const LOG_LIMIT = 100;
 const HISTORY_LIMIT = 500;
-const WATCHDOG_OFFLINE_MS = 10000;   // Coi ESP32 offline nếu quá 10s Web không nhận được tín hiệu
+const WATCHDOG_OFFLINE_MS = 10000;
 const CMD_ACK_TIMEOUT_MS = 8000;
 
 const DEMO_MODE = FIREBASE_CONFIG.databaseURL.includes("YOUR_PROJECT");
@@ -582,8 +581,9 @@ let audioUnlocked = false;
 let cmdLockTimer = null;
 let commandSendBusy = false;
 
-// Kỹ thuật Watchdog mới: Ghi nhận thời gian thực trình duyệt nhận data, không cần khớp giờ ESP32
-let lastStatusPacketAt = Date.now();
+// Kỹ thuật Watchdog nội bộ của Web
+let lastStatusPacketAt = 0;
+let hasEverReceivedStatus = false;
 let serverConnected = false;
 
 const $ = id => document.getElementById(id);
@@ -618,9 +618,8 @@ const fmtTime = (d = new Date()) =>
 
 const getPct = () => clamp(state.status.water_level_percent || 0, 0, 100);
 
-// Nếu 10 giây Web không nhận được bất kỳ tin mới nào từ Firebase -> Phán đoán Offline
 const isOffline = () => {
-  if (!state.ready) return false;
+  if (!state.ready || !hasEverReceivedStatus) return false;
   return (Date.now() - lastStatusPacketAt) > WATCHDOG_OFFLINE_MS;
 };
 
@@ -689,26 +688,25 @@ async function connectFirebase() {
     else updateConnBadge();
   });
 
-  /* LẮNG NGHE STATUS */
+  /* STATUS */
   fb.onValue(fb.ref(db, `${DB_ROOT}/status`), s => {
-    lastStatusPacketAt = Date.now(); // Lưu mốc thời gian nhận gói tin
-    if (!s.exists()) {
-       console.log("[FB] Chưa có Data Status");
-       render(); return; 
-    }
-    console.log("[FB] Nhận bản tin Status");
+    if (!s.exists()) { return; }
+    lastStatusPacketAt = Date.now();
+    hasEverReceivedStatus = true;
     state.status = { ...state.status, ...(s.val() || {}) };
-    state.ready = true; // Kích hoạt Web App
+    state.ready = true;
     render();
-  }, err => setConn("danger", "Lỗi DB: " + err.code));
+  }, err => {
+    setConn("danger", "Lỗi DB: " + (err?.code || "unknown"));
+  });
 
-  /* LẮNG NGHE CONTROL */
+  /* CONTROL */
   fb.onValue(fb.ref(db, `${DB_ROOT}/control`), s => {
     state.control = { ...state.control, ...(s.val() || {}) };
     renderControls();
   });
 
-  /* LẮNG NGHE SETTINGS */
+  /* SETTINGS */
   fb.onValue(fb.ref(db, `${DB_ROOT}/settings`), s => {
     if (!s.exists() || Date.now() < settingsLock) return;
     const v = s.val();
@@ -719,14 +717,15 @@ async function connectFirebase() {
     renderControls();
   });
 
-  /* LẮNG NGHE METRICS */
+  /* METRICS */
   fb.onValue(fb.ref(db, `${DB_ROOT}/metrics`), s => {
     if (s.exists()) state.metrics = { ...state.metrics, ...s.val() };
     renderKPI();
   });
 
-  /* LẮNG NGHE LOGS */
-  fb.onValue(fb.query(fb.ref(db, `${DB_ROOT}/logs`), fb.limitToLast(LOG_LIMIT)), s => {
+  /* LOGS */
+  const logsQuery = fb.query(fb.ref(db, `${DB_ROOT}/logs`), fb.limitToLast(LOG_LIMIT));
+  fb.onValue(logsQuery, s => {
     const arr = [];
     s.forEach(c => arr.push({ id: c.key, ...c.val() }));
     arr.sort((a,b) => (b.ts||0) - (a.ts||0));
@@ -734,8 +733,9 @@ async function connectFirebase() {
     renderLogs();
   });
 
-  /* LẮNG NGHE ALARMS */
-  fb.onValue(fb.query(fb.ref(db, `${DB_ROOT}/alarms`), fb.limitToLast(100)), s => {
+  /* ALARMS */
+  const alarmsQuery = fb.query(fb.ref(db, `${DB_ROOT}/alarms`), fb.limitToLast(100));
+  fb.onValue(alarmsQuery, s => {
     const arr = [];
     s.forEach(c => arr.push({ id: c.key, ...c.val() }));
     arr.sort((a,b) => (b.occurredAt||0) - (a.occurredAt||0));
@@ -744,8 +744,9 @@ async function connectFirebase() {
     renderAlarmBanner();
   });
 
-  /* LẮNG NGHE HISTORY */
-  fb.onValue(fb.query(fb.ref(db, `${DB_ROOT}/history`), fb.limitToLast(HISTORY_LIMIT)), s => {
+  /* HISTORY */
+  const historyQuery = fb.query(fb.ref(db, `${DB_ROOT}/history`), fb.limitToLast(HISTORY_LIMIT));
+  fb.onValue(historyQuery, s => {
     const arr = [];
     s.forEach(c => arr.push({ id: c.key, ...c.val() }));
     arr.sort((a,b) => (a.ts||0) - (b.ts||0));
@@ -754,7 +755,6 @@ async function connectFirebase() {
   });
 }
 
-/* Bắt tay lệnh có Sequence */
 async function sendCommand(key, value) {
   if (!state.isAdmin || (state.source === "live" && !fb) || !state.ready) return;
   if (commandSendBusy || isCommandPending()) return;
@@ -784,7 +784,6 @@ async function sendCommand(key, value) {
   try {
     await fb.update(fb.ref(fb.db, `${DB_ROOT}/control`), cmd);
   } catch (e) {
-    console.error("[sendCommand]", e);
     state.control[key] = prevVal;
     state.pendingCmdSeq = 0;
     renderControls();
@@ -801,7 +800,6 @@ async function sendCommand(key, value) {
   }, CMD_ACK_TIMEOUT_MS);
 }
 
-/* Xác nhận Alarm (ACK) */
 async function ackAlarm(id) {
   if (!state.isAdmin) { alert("Cần đăng nhập Admin!"); return; }
   const a = state.alarms.find(x => x.id === id);
@@ -824,6 +822,7 @@ async function ackAlarm(id) {
     try { await fb.update(fb.ref(fb.db, `${DB_ROOT}/alarms/${id}`), upd); } catch {}
   }
 }
+
 async function ackAllAlarms() {
   if (!state.isAdmin) { alert("Cần đăng nhập Admin!"); return; }
   for (const a of state.alarms.filter(x => !x.ackedAt)) await ackAlarm(a.id);
@@ -840,7 +839,6 @@ async function writeSetting(key, value) {
   renderControls();
 }
 
-/* Đồ thị Chart.js */
 function initChart() {
   const ctx = $("trendChart").getContext("2d");
   chart = new Chart(ctx, {
@@ -1018,7 +1016,6 @@ function renderControls() {
   els.interlockStatus.textContent = ilText;
   els.interlockStatus.style.color = ilColor;
 
-  // Watchdog đếm giây từ lần nhận gói tin cuối
   const secAgo = Math.max(0, Math.round((Date.now() - lastStatusPacketAt) / 1000));
   if (!state.ready) {
     els.watchdogStatus.textContent = "—";
@@ -1300,7 +1297,12 @@ window.addEventListener("DOMContentLoaded", () => {
     setConn("danger", "Lỗi nạp Firebase");
   });
 
-  setInterval(() => { renderControls(); }, 1000);
+  // Vòng lặp vẽ lại giao diện và kiểm tra Offline mỗi giây.
+  setInterval(() => {
+    renderControls();
+    renderPID();
+    updateConnBadge();
+  }, 1000);
 });
 </script>
 </body>
