@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Smart Water Station · HMI SCADA v6.8</title>
+<title>Smart Water Station · HMI SCADA v6.9</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -301,7 +301,7 @@ input[type="range"]:disabled{opacity:.4;cursor:not-allowed}
     <div class="logo">💧</div>
     <div>
       <h1>Trạm Cấp Nước · HMI Terminal</h1>
-      <p>ESP32 Controller v5.9 · Terminal v6.8 SCADA</p>
+      <p>ESP32 Controller v5.9 · Terminal v6.9 SCADA</p>
     </div>
   </div>
   <div class="topbar-right">
@@ -518,7 +518,8 @@ input[type="range"]:disabled{opacity:.4;cursor:not-allowed}
 
 <script type="module">
 /* ================================================================
-   HMI TERMINAL v6.8 — Chuẩn SCADA Thin-Client
+   HMI TERMINAL v6.9 — Chuẩn SCADA Thin-Client
+   - Bổ sung hàm pushAuditLog ghi nhật ký thao tác của Admin
    ================================================================ */
 
 const FIREBASE_CONFIG = {
@@ -672,6 +673,18 @@ function startAlarmSound() {
 }
 function stopAlarmSound() { if (beepTimer) { clearInterval(beepTimer); beepTimer = null; } }
 
+/* GHI NHẬT KÝ THAO TÁC CỦA ADMIN LÊN FIREBASE */
+function pushAuditLog(actionMsg) {
+  if (state.source === "demo" || !fb) return;
+  const logEntry = {
+    actor: "Admin",
+    action: actionMsg,
+    ts: Date.now(),
+    timestamp: fmtTime()
+  };
+  fb.push(fb.ref(fb.db, `${DB_ROOT}/logs`), logEntry).catch(e => console.error("Lỗi ghi log", e));
+}
+
 /* Kết nối Firebase */
 async function connectFirebase() {
   const V = "10.12.5";
@@ -688,7 +701,7 @@ async function connectFirebase() {
     else updateConnBadge();
   });
 
-  /* STATUS */
+  /* LẮNG NGHE STATUS */
   fb.onValue(fb.ref(db, `${DB_ROOT}/status`), s => {
     if (!s.exists()) { return; }
     lastStatusPacketAt = Date.now();
@@ -700,13 +713,13 @@ async function connectFirebase() {
     setConn("danger", "Lỗi DB: " + (err?.code || "unknown"));
   });
 
-  /* CONTROL */
+  /* LẮNG NGHE CONTROL */
   fb.onValue(fb.ref(db, `${DB_ROOT}/control`), s => {
     state.control = { ...state.control, ...(s.val() || {}) };
     renderControls();
   });
 
-  /* SETTINGS */
+  /* LẮNG NGHE SETTINGS */
   fb.onValue(fb.ref(db, `${DB_ROOT}/settings`), s => {
     if (!s.exists() || Date.now() < settingsLock) return;
     const v = s.val();
@@ -717,13 +730,13 @@ async function connectFirebase() {
     renderControls();
   });
 
-  /* METRICS */
+  /* LẮNG NGHE METRICS */
   fb.onValue(fb.ref(db, `${DB_ROOT}/metrics`), s => {
     if (s.exists()) state.metrics = { ...state.metrics, ...s.val() };
     renderKPI();
   });
 
-  /* LOGS */
+  /* LẮNG NGHE LOGS */
   const logsQuery = fb.query(fb.ref(db, `${DB_ROOT}/logs`), fb.limitToLast(LOG_LIMIT));
   fb.onValue(logsQuery, s => {
     const arr = [];
@@ -733,7 +746,7 @@ async function connectFirebase() {
     renderLogs();
   });
 
-  /* ALARMS */
+  /* LẮNG NGHE ALARMS */
   const alarmsQuery = fb.query(fb.ref(db, `${DB_ROOT}/alarms`), fb.limitToLast(100));
   fb.onValue(alarmsQuery, s => {
     const arr = [];
@@ -744,7 +757,7 @@ async function connectFirebase() {
     renderAlarmBanner();
   });
 
-  /* HISTORY */
+  /* LẮNG NGHE HISTORY */
   const historyQuery = fb.query(fb.ref(db, `${DB_ROOT}/history`), fb.limitToLast(HISTORY_LIMIT));
   fb.onValue(historyQuery, s => {
     const arr = [];
@@ -755,6 +768,7 @@ async function connectFirebase() {
   });
 }
 
+/* Bắt tay lệnh có Sequence */
 async function sendCommand(key, value) {
   if (!state.isAdmin || (state.source === "live" && !fb) || !state.ready) return;
   if (commandSendBusy || isCommandPending()) return;
@@ -773,6 +787,13 @@ async function sendCommand(key, value) {
 
   renderControls();
   lockCommands();
+  
+  // Audit log thao tác lệnh
+  let actMsg = "";
+  if (key === "pump_cmd") actMsg = value ? "Phát lệnh BẬT máy bơm thủ công" : "Phát lệnh TẮT máy bơm thủ công";
+  else if (key === "mode_cmd") actMsg = "Chuyển hệ thống sang chế độ " + value;
+  else if (key === "emergency_cmd") actMsg = value ? "KÍCH HOẠT CHẾ ĐỘ DỪNG KHẨN CẤP" : "HỦY LỆNH DỪNG KHẨN CẤP";
+  if (actMsg) pushAuditLog(actMsg);
 
   const cmd = {
     [key]: value,
@@ -784,6 +805,7 @@ async function sendCommand(key, value) {
   try {
     await fb.update(fb.ref(fb.db, `${DB_ROOT}/control`), cmd);
   } catch (e) {
+    console.error("[sendCommand]", e);
     state.control[key] = prevVal;
     state.pendingCmdSeq = 0;
     renderControls();
@@ -800,6 +822,7 @@ async function sendCommand(key, value) {
   }, CMD_ACK_TIMEOUT_MS);
 }
 
+/* Xác nhận Alarm (ACK) */
 async function ackAlarm(id) {
   if (!state.isAdmin) { alert("Cần đăng nhập Admin!"); return; }
   const a = state.alarms.find(x => x.id === id);
@@ -817,12 +840,13 @@ async function ackAlarm(id) {
   a.state = upd.state;
   renderAlarms();
   renderAlarmBanner();
+  
+  pushAuditLog("Xác nhận (ACK) sự cố: " + (a.code || id));
 
   if (state.source === "live" && fb) {
     try { await fb.update(fb.ref(fb.db, `${DB_ROOT}/alarms/${id}`), upd); } catch {}
   }
 }
-
 async function ackAllAlarms() {
   if (!state.isAdmin) { alert("Cần đăng nhập Admin!"); return; }
   for (const a of state.alarms.filter(x => !x.ackedAt)) await ackAlarm(a.id);
@@ -839,6 +863,7 @@ async function writeSetting(key, value) {
   renderControls();
 }
 
+/* Đồ thị Chart.js */
 function initChart() {
   const ctx = $("trendChart").getContext("2d");
   chart = new Chart(ctx, {
@@ -1175,6 +1200,10 @@ function commitThresholds(src) {
   els.stopVal.textContent = stop + "%";
   previewStart = null; previewStop = null;
 
+  if (state.settings.start_level !== start || state.settings.stop_level !== stop) {
+    pushAuditLog(`Đổi cấu hình tự động: Bật ở ${start}%, Dừng ở ${stop}%`);
+  }
+
   if (state.settings.start_level !== start) writeSetting("start_level", start);
   if (state.settings.stop_level !== stop)  writeSetting("stop_level", stop);
   updateChart();
@@ -1208,11 +1237,13 @@ async function handleLogin() {
   els.loginModal.hidden = true;
   els.pwdInput.value = "";
   els.loginErr.textContent = "";
+  pushAuditLog("Đăng nhập quyền Admin");
   renderControls();
 }
 function handleLogout() {
   state.isAdmin = false;
   state.pendingCmdSeq = 0;
+  pushAuditLog("Đăng xuất Admin");
   renderControls();
 }
 
@@ -1297,7 +1328,7 @@ window.addEventListener("DOMContentLoaded", () => {
     setConn("danger", "Lỗi nạp Firebase");
   });
 
-  // Vòng lặp vẽ lại giao diện và kiểm tra Offline mỗi giây.
+  /* Watchdog UI: phải chạy độc lập với Firebase event để detect ESP32 bị rút nguồn */
   setInterval(() => {
     renderControls();
     renderPID();
