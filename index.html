@@ -518,7 +518,7 @@ input[type="range"]:disabled{opacity:.4;cursor:not-allowed}
 
 <script type="module">
 /* ================================================================
-   HMI TERMINAL v6.5.1 — Chỉ hiển thị + gửi command + ACK
+   HMI TERMINAL v6.5.2 — Chỉ hiển thị + gửi command + ACK
    Không có: alarm engine, metrics calc, historian sampling,
              interlock, auto logic.
    Tất cả do ESP32 làm.
@@ -537,8 +537,8 @@ const DB_ROOT = "system";
 const ADMIN_PASSWORD = "000000";
 const LOG_LIMIT = 100;
 const HISTORY_LIMIT = 500;
-const HEARTBEAT_TIMEOUT_MS = 5000;   // ESP32 heartbeat timeout
-const HEARTBEAT_MIN_UNIX = 1000000000; // heartbeat must be real Unix time
+const HEARTBEAT_TIMEOUT_MS = 8000;   // status update timeout; ESP32 writes status every ~2s
+const HEARTBEAT_MIN_UNIX = 1000000000; // legacy only; HMI online uses Firebase status receipt time
 const CMD_ACK_TIMEOUT_MS = 8000;     // FIX #8: chờ ACK tối đa 8s
 
 const DEMO_MODE = FIREBASE_CONFIG.databaseURL.includes("YOUR_PROJECT");
@@ -558,6 +558,7 @@ const state = {
     last_updated: 0,
     heartbeat: 0,
     firmware_version: "—",
+    controller_online: false,
     last_cmd_sequence: 0,
     last_cmd_status: "IDLE",
     last_cmd_reason: ""
@@ -701,6 +702,7 @@ async function connectFirebase() {
     state.status = { ...state.status, ...(s.val() || {}) };
     state.ready = true;
     heartbeats.lastStatusReceivedAt = Date.now();
+    state.status.controller_online = true;
     render();
   }, err => setConn("danger", "Lỗi: " + err.code));
 
