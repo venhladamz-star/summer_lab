@@ -537,7 +537,8 @@ const DB_ROOT = "system";
 const ADMIN_PASSWORD = "000000";
 const LOG_LIMIT = 100;
 const HISTORY_LIMIT = 500;
-const HEARTBEAT_TIMEOUT_MS = 5000;   // FIX #9: dùng heartbeat
+const HEARTBEAT_TIMEOUT_MS = 5000;   // ESP32 heartbeat timeout
+const HEARTBEAT_MIN_UNIX = 1000000000; // heartbeat must be real Unix time
 const CMD_ACK_TIMEOUT_MS = 8000;     // FIX #8: chờ ACK tối đa 8s
 
 const DEMO_MODE = FIREBASE_CONFIG.databaseURL.includes("YOUR_PROJECT");
@@ -619,11 +620,16 @@ const getPct = () => clamp(state.status.water_level_percent || 0, 0, 100);
 
 /* FIX #9: dùng heartbeat thay vì last_updated */
 const getHeartbeatAge = () => {
-  const hb = state.status.heartbeat || 0;
-  if (hb < 1000000000) return Infinity; // chưa có Unix heartbeat hợp lệ
+  const hb = Number(state.status.heartbeat) || 0;
+  if (hb < HEARTBEAT_MIN_UNIX) return null; // ESP32 chưa đồng bộ NTP
   return Date.now() - hb * 1000;
 };
-const isOffline = () => state.ready && getHeartbeatAge() > HEARTBEAT_TIMEOUT_MS;
+const isOffline = () => {
+  if (!state.ready) return false;
+  const age = getHeartbeatAge();
+  // Do not call ESP32 offline merely because NTP has not synced yet.
+  return age !== null && age > HEARTBEAT_TIMEOUT_MS;
+};
 
 /* FIX #8: command đang chờ ACK */
 const isCommandPending = () => {
@@ -1083,7 +1089,7 @@ function renderControls() {
     els.watchdogStatus.style.color = "#94a3b8";
   } else {
     const age = getHeartbeatAge();
-    if (age === Infinity) { els.watchdogStatus.textContent = "Chờ HB..."; els.watchdogStatus.style.color = "#94a3b8"; }
+    if (age === null) { els.watchdogStatus.textContent = "Chờ NTP/HB..."; els.watchdogStatus.style.color = "#94a3b8"; }
     else if (age <= HEARTBEAT_TIMEOUT_MS) {
       els.watchdogStatus.textContent = `OK (${Math.round(age/1000)}s)`;
       els.watchdogStatus.style.color = "#16a34a";
