@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Smart Water Station · HMI Terminal</title>
+<title>Smart Water Station · HMI SCADA v6.6</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -301,7 +301,7 @@ input[type="range"]:disabled{opacity:.4;cursor:not-allowed}
     <div class="logo">💧</div>
     <div>
       <h1>Trạm Cấp Nước · HMI Terminal</h1>
-      <p>ESP32 Controller v5.4 · Terminal v6.4</p>
+      <p>ESP32 Controller v5.7 · Terminal v6.6 SCADA</p>
     </div>
   </div>
   <div class="topbar-right">
@@ -518,10 +518,8 @@ input[type="range"]:disabled{opacity:.4;cursor:not-allowed}
 
 <script type="module">
 /* ================================================================
-   HMI TERMINAL v6.5.2 — Chỉ hiển thị + gửi command + ACK
-   Không có: alarm engine, metrics calc, historian sampling,
-             interlock, auto logic.
-   Tất cả do ESP32 làm.
+   HMI TERMINAL v6.6 — Chuẩn SCADA Thin-Client
+   - Sửa lỗi chờ kết nối khi lệch múi giờ NTP
    ================================================================ */
 
 const FIREBASE_CONFIG = {
@@ -537,9 +535,8 @@ const DB_ROOT = "system";
 const ADMIN_PASSWORD = "000000";
 const LOG_LIMIT = 100;
 const HISTORY_LIMIT = 500;
-const HEARTBEAT_TIMEOUT_MS = 8000;   // status update timeout; ESP32 writes status every ~2s
-const HEARTBEAT_MIN_UNIX = 1000000000; // legacy only; HMI online uses Firebase status receipt time
-const CMD_ACK_TIMEOUT_MS = 8000;     // FIX #8: chờ ACK tối đa 8s
+const WATCHDOG_OFFLINE_MS = 10000;   // Coi ESP32 offline nếu quá 10s Web không nhận được tín hiệu
+const CMD_ACK_TIMEOUT_MS = 8000;
 
 const DEMO_MODE = FIREBASE_CONFIG.databaseURL.includes("YOUR_PROJECT");
 
@@ -558,7 +555,6 @@ const state = {
     last_updated: 0,
     heartbeat: 0,
     firmware_version: "—",
-    controller_online: false,
     last_cmd_sequence: 0,
     last_cmd_status: "IDLE",
     last_cmd_reason: ""
@@ -569,7 +565,7 @@ const state = {
   logs: [], alarms: [], history: [],
   isAdmin: false,
   ready: false,
-  pendingCmdSeq: 0,           // FIX #8: cmd đang chờ ACK
+  pendingCmdSeq: 0,
   pendingCmdAt: 0
 };
 
@@ -579,13 +575,16 @@ let chartRangeMin = 5;
 let draggingSlider = null;
 let previewStart = null, previewStop = null;
 let settingsLock = 0;
-let heartbeats = { serverConnected: false, lastStatusReceivedAt: 0 };
 let soundEnabled = true;
 let alarmAudioCtx = null;
 let beepTimer = null;
 let audioUnlocked = false;
 let cmdLockTimer = null;
 let commandSendBusy = false;
+
+// Kỹ thuật Watchdog mới: Ghi nhận thời gian thực trình duyệt nhận data, không cần khớp giờ ESP32
+let lastStatusPacketAt = Date.now();
+let serverConnected = false;
 
 const $ = id => document.getElementById(id);
 const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
@@ -619,19 +618,12 @@ const fmtTime = (d = new Date()) =>
 
 const getPct = () => clamp(state.status.water_level_percent || 0, 0, 100);
 
-/* Online/offline: dùng thời điểm HMI thực sự nhận được status từ Firebase.
-   Không phụ thuộc NTP của ESP32 nên ESP32 vẫn ONLINE ngay cả khi NTP chưa sync. */
-const getStatusAge = () => {
-  if (!heartbeats.lastStatusReceivedAt) return null;
-  return Date.now() - heartbeats.lastStatusReceivedAt;
-};
+// Nếu 10 giây Web không nhận được bất kỳ tin mới nào từ Firebase -> Phán đoán Offline
 const isOffline = () => {
   if (!state.ready) return false;
-  const age = getStatusAge();
-  return age !== null && age > HEARTBEAT_TIMEOUT_MS;
+  return (Date.now() - lastStatusPacketAt) > WATCHDOG_OFFLINE_MS;
 };
 
-/* FIX #8: command đang chờ ACK */
 const isCommandPending = () => {
   if (state.pendingCmdSeq === 0) return false;
   if (state.status.last_cmd_sequence >= state.pendingCmdSeq) {
@@ -647,7 +639,7 @@ const isCommandPending = () => {
   return true;
 };
 
-/* Alarm sound */
+/* Còi báo động */
 function ensureAudio() {
   if (!alarmAudioCtx) {
     try { alarmAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch {}
@@ -681,7 +673,7 @@ function startAlarmSound() {
 }
 function stopAlarmSound() { if (beepTimer) { clearInterval(beepTimer); beepTimer = null; } }
 
-/* Firebase */
+/* Kết nối Firebase */
 async function connectFirebase() {
   const V = "10.12.5";
   const am = await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
@@ -692,167 +684,124 @@ async function connectFirebase() {
          push: dm.push, query: dm.query, limitToLast: dm.limitToLast, get: dm.get };
 
   fb.onValue(fb.ref(db, ".info/connected"), s => {
-    heartbeats.serverConnected = !!s.val();
-    updateConnBadge();
+    serverConnected = !!s.val();
+    if (!serverConnected) setConn("warn", "Mất kết nối Internet");
+    else updateConnBadge();
   });
 
-  /* STATUS */
+  /* LẮNG NGHE STATUS */
   fb.onValue(fb.ref(db, `${DB_ROOT}/status`), s => {
-    if (!s.exists()) { render(); return; }
+    lastStatusPacketAt = Date.now(); // Lưu mốc thời gian nhận gói tin
+    if (!s.exists()) {
+       console.log("[FB] Chưa có Data Status");
+       render(); return; 
+    }
+    console.log("[FB] Nhận bản tin Status");
     state.status = { ...state.status, ...(s.val() || {}) };
-    state.ready = true;
-    heartbeats.lastStatusReceivedAt = Date.now();
-    state.status.controller_online = true;
+    state.ready = true; // Kích hoạt Web App
     render();
-  }, err => setConn("danger", "Lỗi: " + err.code));
+  }, err => setConn("danger", "Lỗi DB: " + err.code));
 
-  /* CONTROL — chỉ để hiển thị, không dùng để set status */
+  /* LẮNG NGHE CONTROL */
   fb.onValue(fb.ref(db, `${DB_ROOT}/control`), s => {
     state.control = { ...state.control, ...(s.val() || {}) };
     renderControls();
   });
 
-  /* SETTINGS */
+  /* LẮNG NGHE SETTINGS */
   fb.onValue(fb.ref(db, `${DB_ROOT}/settings`), s => {
-    if (!s.exists()) return;
-    if (Date.now() < settingsLock) return;
+    if (!s.exists() || Date.now() < settingsLock) return;
     const v = s.val();
     if (typeof v.start_level === "number") state.settings.start_level = v.start_level;
-    if (typeof v.stop_level  === "number") state.settings.stop_level  = v.stop_level;
-    if (typeof v.low_level_alarm_pct    === "number") state.settings.low_level_alarm_pct    = v.low_level_alarm_pct;
-    if (typeof v.dry_run_interlock_pct  === "number") state.settings.dry_run_interlock_pct  = v.dry_run_interlock_pct;
+    if (typeof v.stop_level === "number") state.settings.stop_level = v.stop_level;
+    if (typeof v.low_level_alarm_pct === "number") state.settings.low_level_alarm_pct = v.low_level_alarm_pct;
+    if (typeof v.dry_run_interlock_pct === "number") state.settings.dry_run_interlock_pct = v.dry_run_interlock_pct;
     renderControls();
   });
 
-  /* METRICS — đọc only */
+  /* LẮNG NGHE METRICS */
   fb.onValue(fb.ref(db, `${DB_ROOT}/metrics`), s => {
     if (s.exists()) state.metrics = { ...state.metrics, ...s.val() };
     renderKPI();
   });
 
-  /* LOGS */
-  fb.onValue(
-    fb.query(fb.ref(db, `${DB_ROOT}/logs`), fb.limitToLast(LOG_LIMIT)),
-    s => {
-      const arr = [];
-      s.forEach(c => arr.push({ id: c.key, ...c.val() }));
-      arr.sort((a,b) => (b.ts||0) - (a.ts||0));
-      state.logs = arr;
-      renderLogs();
-    }
-  );
+  /* LẮNG NGHE LOGS */
+  fb.onValue(fb.query(fb.ref(db, `${DB_ROOT}/logs`), fb.limitToLast(LOG_LIMIT)), s => {
+    const arr = [];
+    s.forEach(c => arr.push({ id: c.key, ...c.val() }));
+    arr.sort((a,b) => (b.ts||0) - (a.ts||0));
+    state.logs = arr;
+    renderLogs();
+  });
 
-  /* ALARMS */
-  fb.onValue(
-    fb.query(fb.ref(db, `${DB_ROOT}/alarms`), fb.limitToLast(100)),
-    s => {
-      const arr = [];
-      s.forEach(c => arr.push({ id: c.key, ...c.val() }));
-      arr.sort((a,b) => (b.occurredAt||0) - (a.occurredAt||0));
-      state.alarms = arr;
-      renderAlarms();
-      renderAlarmBanner();
-    }
-  );
+  /* LẮNG NGHE ALARMS */
+  fb.onValue(fb.query(fb.ref(db, `${DB_ROOT}/alarms`), fb.limitToLast(100)), s => {
+    const arr = [];
+    s.forEach(c => arr.push({ id: c.key, ...c.val() }));
+    arr.sort((a,b) => (b.occurredAt||0) - (a.occurredAt||0));
+    state.alarms = arr;
+    renderAlarms();
+    renderAlarmBanner();
+  });
 
-  /* HISTORY */
-  fb.onValue(
-    fb.query(fb.ref(db, `${DB_ROOT}/history`), fb.limitToLast(HISTORY_LIMIT)),
-    s => {
-      const arr = [];
-      s.forEach(c => arr.push({ id: c.key, ...c.val() }));
-      arr.sort((a,b) => (a.ts||0) - (b.ts||0));
-      state.history = arr;
-      updateChart();
-    }
-  );
+  /* LẮNG NGHE HISTORY */
+  fb.onValue(fb.query(fb.ref(db, `${DB_ROOT}/history`), fb.limitToLast(HISTORY_LIMIT)), s => {
+    const arr = [];
+    s.forEach(c => arr.push({ id: c.key, ...c.val() }));
+    arr.sort((a,b) => (a.ts||0) - (b.ts||0));
+    state.history = arr;
+    updateChart();
+  });
 }
 
-/* FIX #8: ghi command với cmd_sequence */
+/* Bắt tay lệnh có Sequence */
 async function sendCommand(key, value) {
   if (!state.isAdmin || (state.source === "live" && !fb) || !state.ready) return;
   if (commandSendBusy || isCommandPending()) return;
   commandSendBusy = true;
-  /* Tăng cmd_sequence */
-  const nextSeq = Math.max(Number(state.control.cmd_sequence) || 0, Number(state.status.last_cmd_sequence) || 0) + 1;
 
-  /* Cập nhật local command; rollback nếu Firebase từ chối */
-  const previousValue = state.control[key];
+  const nextSeq = Math.max(Number(state.control.cmd_sequence) || 0, Number(state.status.last_cmd_sequence) || 0) + 1;
+  const prevVal = state.control[key];
+
   state.control[key] = value;
   state.control.cmd_sequence = nextSeq;
   state.control.cmd_issued_at = Date.now();
   state.control.cmd_issued_by = "Admin";
 
-  /* Set pending để block các lệnh khác */
   state.pendingCmdSeq = nextSeq;
   state.pendingCmdAt = Date.now();
 
-  /* Disable UI ngay lập tức */
   renderControls();
   lockCommands();
 
-  if (state.source === "demo") {
-    /* Demo: giả lập ESP32 trả lời sau 500ms */
-    setTimeout(() => {
-      applyDemoCommand(key, value);
-      state.status.last_cmd_sequence = nextSeq;
-      state.status.last_cmd_status = "APPLIED";
-      state.pendingCmdSeq = 0;
-      render();
-      commandSendBusy = false;
-    }, 500);
-    return;
-  }
-
-  /* Ghi atomic 1 lần */
   const cmd = {
     [key]: value,
     cmd_sequence: nextSeq,
     cmd_issued_at: Date.now(),
     cmd_issued_by: "Admin"
   };
+
   try {
     await fb.update(fb.ref(fb.db, `${DB_ROOT}/control`), cmd);
   } catch (e) {
     console.error("[sendCommand]", e);
-    state.control[key] = previousValue;
+    state.control[key] = prevVal;
     state.pendingCmdSeq = 0;
-    clearTimeout(cmdLockTimer);
     renderControls();
   } finally {
     commandSendBusy = false;
   }
 
-  /* Timeout unlock nếu ESP32 không trả lời */
   clearTimeout(cmdLockTimer);
   cmdLockTimer = setTimeout(() => {
     if (state.pendingCmdSeq === nextSeq) {
       state.pendingCmdSeq = 0;
       renderControls();
-      console.warn("Command timeout — unlock UI");
     }
   }, CMD_ACK_TIMEOUT_MS);
 }
 
-/* Demo: fake ESP32 */
-function applyDemoCommand(key, value) {
-  const s = state.status;
-  const cfg = state.settings;
-  if (key === "pump_cmd") {
-    const pct = getPct();
-    const block = pct < cfg.dry_run_interlock_pct || s.emergency_lock;
-    if (!block) s.pump_running = Boolean(value);
-  } else if (key === "mode_cmd") {
-    s.current_mode = value;
-  } else if (key === "emergency_cmd") {
-    s.emergency_lock = Boolean(value);
-    if (s.emergency_lock) s.pump_running = false;
-  }
-  s.last_updated = Math.floor(Date.now()/1000);
-  s.heartbeat = s.last_updated;
-}
-
-/* FIX #3: HMI chỉ update ackedBy/ackedAt/state */
+/* Xác nhận Alarm (ACK) */
 async function ackAlarm(id) {
   if (!state.isAdmin) { alert("Cần đăng nhập Admin!"); return; }
   const a = state.alarms.find(x => x.id === id);
@@ -880,7 +829,6 @@ async function ackAllAlarms() {
   for (const a of state.alarms.filter(x => !x.ackedAt)) await ackAlarm(a.id);
 }
 
-/* Settings write */
 async function writeSetting(key, value) {
   const prev = state.settings[key];
   state.settings[key] = value;
@@ -892,7 +840,7 @@ async function writeSetting(key, value) {
   renderControls();
 }
 
-/* Chart */
+/* Đồ thị Chart.js */
 function initChart() {
   const ctx = $("trendChart").getContext("2d");
   chart = new Chart(ctx, {
@@ -936,7 +884,6 @@ function updateChart() {
   });
   chart.data.datasets[0].data = pts.map(p => p.pct);
   chart.data.datasets[1].data = pts.map(p => p.pump ? 100 : 0);
-  /* FIX #11: dùng threshold từ history point (snapshot) */
   chart.data.datasets[2].data = pts.map(p =>
     typeof p.start_level === "number" ? p.start_level : (previewStart ?? state.settings.start_level));
   chart.data.datasets[3].data = pts.map(p =>
@@ -944,51 +891,44 @@ function updateChart() {
   chart.update("none");
 }
 
-/* Lock UI trong lúc chờ ACK (FIX #8) */
 function lockCommands() {
   els.pumpSwitch.disabled = true;
   els.modeSeg.querySelectorAll("button").forEach(b => b.disabled = true);
   els.emergencyBtn.disabled = true;
 }
-function unlockCommands() {
-  renderControls();
-}
 
-/* Render */
 function setConn(kind, text) {
-  const map = { ok: ["Đã kết nối","ok"], warn: ["Mất kết nối","warn"],
-    danger: ["Lỗi","danger"], info: ["DEMO","info"] };
+  const map = { ok: ["Đã kết nối","ok"], warn: ["Mất kết nối","warn"], danger: ["ESP32 Offline","danger"], info: ["DEMO","info"] };
   const [d,c] = map[kind] || ["—",""];
   els.connText.textContent = text || d;
   els.connBadge.className = "conn-badge " + c;
 }
+
 function updateConnBadge() {
-  if (!heartbeats.serverConnected) { setConn("warn", "Mất kết nối Firebase"); return; }
-  if (!state.ready) { setConn("warn", "Chờ ESP32..."); return; }
-  if (isOffline()) { setConn("danger", "ESP32 offline"); return; }
-  setConn("ok", "ESP32 online");
+  if (!serverConnected) { setConn("warn", "Mất kết nối Internet"); return; }
+  if (!state.ready) { setConn("warn", "Đang nạp dữ liệu..."); return; }
+  if (isOffline()) { setConn("danger", "ESP32 Offline"); return; }
+  setConn("ok", "SCADA Online");
 }
+
 function render() {
   renderPID(); renderControls(); renderAlarms();
   renderAlarmBanner(); renderKPI(); renderLogs(); updateChart();
   updateConnBadge();
 }
+
 function renderPID() {
   const pct = getPct();
   const s = state.status;
-  const h = 240;
-  const fillH = h * pct / 100;
-  const fillY = 270 - fillH;
-  els.tankWater.setAttribute("y", fillY);
+  const fillH = 240 * pct / 100;
+  els.tankWater.setAttribute("y", 270 - fillH);
   els.tankWater.setAttribute("height", fillH);
 
   let c1 = "#38bdf8", c2 = "#1d4ed8";
   if (s.water_level_state === "EMPTY") { c1 = "#fbbf24"; c2 = "#d97706"; }
   else if (s.water_level_state === "FULL") { c1 = "#34d399"; c2 = "#16a34a"; }
-  const g1 = document.querySelector("#waterGrad stop:first-child");
-  const g2 = document.querySelector("#waterGrad stop:last-child");
-  if (g1) g1.setAttribute("stop-color", c1);
-  if (g2) g2.setAttribute("stop-color", c2);
+  document.querySelector("#waterGrad stop:first-child").setAttribute("stop-color", c1);
+  document.querySelector("#waterGrad stop:last-child").setAttribute("stop-color", c2);
 
   els.sensorLow.setAttribute("fill", pct < state.settings.low_level_alarm_pct ? "#fbbf24" : "#fef3c7");
   els.sensorHigh.setAttribute("fill", pct > 85 ? "#22c55e" : "#dcfce7");
@@ -1021,11 +961,10 @@ function renderPID() {
   const flow = Number(s.flow_lpm);
   els.pidFlowPill.textContent = `${Number.isFinite(flow) ? flow.toFixed(1) : "0.0"} L/phút`;
   els.pidFlowPill.className = "pill" + (flow > 0 ? " ok" : "");
-  if (els.pidSensorPill) {
-    els.pidSensorPill.textContent = s.ultrasonic_valid ? "LEVEL · ULTRASONIC" : "LEVEL · FLOAT";
-    els.pidSensorPill.className = "pill" + (s.ultrasonic_valid ? " ok" : "");
-  }
+  els.pidSensorPill.textContent = s.ultrasonic_valid ? "LEVEL · ULTRASONIC" : "LEVEL · FLOAT";
+  els.pidSensorPill.className = "pill" + (s.ultrasonic_valid ? " ok" : "");
 }
+
 function renderControls() {
   const admin = state.isAdmin;
   const s = state.status;
@@ -1037,14 +976,11 @@ function renderControls() {
   const pending = isCommandPending();
   const offline = isOffline();
 
-  /* Interlock tính ở HMI chỉ để HIỂN THỊ — logic thật ở ESP32 (FIX #5) */
   const dryBlock = pct < cfg.dry_run_interlock_pct;
-  const estopActive = locked;
 
   els.lockChip.textContent = admin ? "🔓 Admin" : "🔒 Chỉ Admin";
   els.lockChip.className = "lock-chip" + (admin ? " admin" : "");
 
-  /* FIX #8: pending → switch hiển thị trạng thái pending */
   const cmdPump = Boolean(state.control.pump_cmd);
   const showPending = pending && cmdPump !== pumpOn;
 
@@ -1052,63 +988,58 @@ function renderControls() {
   els.pumpSwitch.classList.toggle("pending", showPending);
   els.pumpSwitch.disabled = !admin || locked || isAuto || offline || pending || !state.ready;
 
-  /* Sub text */
   if (!state.ready) {
-    els.pumpSub.textContent = "Chờ dữ liệu ESP32...";
+    els.pumpSub.textContent = "Đang nạp dữ liệu...";
     els.pumpSub.className = "ctl-sub hint";
   } else if (offline) {
-    els.pumpSub.textContent = "ESP32 offline — không thể điều khiển";
+    els.pumpSub.textContent = "ESP32 Offline — Đứt tín hiệu truyền thông";
     els.pumpSub.className = "ctl-sub danger";
   } else if (pending) {
-    els.pumpSub.textContent = "⏳ Đang chờ ESP32 xác nhận lệnh...";
+    els.pumpSub.textContent = "⏳ Chờ ESP32 xác nhận lệnh...";
     els.pumpSub.className = "ctl-sub pending";
   } else if (locked) {
-    els.pumpSub.textContent = "E-STOP đang hoạt động — cần reset";
+    els.pumpSub.textContent = "E-STOP đang khóa — Cần Reset để tiếp tục";
     els.pumpSub.className = "ctl-sub danger";
   } else if (isAuto) {
-    els.pumpSub.textContent = "AUTO (ESP32 tự điều khiển)";
+    els.pumpSub.textContent = "AUTO (ESP32 đang tự trị theo phao)";
     els.pumpSub.className = "ctl-sub hint";
   } else if (dryBlock) {
-    els.pumpSub.textContent = `Interlock: nước ${Math.round(pct)}% < ${cfg.dry_run_interlock_pct}%`;
+    els.pumpSub.textContent = `Interlock cạn: Nước ${Math.round(pct)}% < ${cfg.dry_run_interlock_pct}%`;
     els.pumpSub.className = "ctl-sub danger";
   } else {
     els.pumpSub.textContent = pumpOn ? "Đang bơm nước" : "Đang dừng";
     els.pumpSub.className = "ctl-sub";
   }
 
-  /* Interlock indicator — chỉ hiển thị */
   let ilText = "OK", ilColor = "#16a34a";
-  if (!state.ready) { ilText = "—"; ilColor = "#94a3b8"; }
-  else if (offline) { ilText = "—"; ilColor = "#94a3b8"; }
-  else if (estopActive) { ilText = "E-STOP"; ilColor = "#dc2626"; }
+  if (!state.ready || offline) { ilText = "—"; ilColor = "#94a3b8"; }
+  else if (locked) { ilText = "E-STOP"; ilColor = "#dc2626"; }
   else if (dryBlock) { ilText = "DRY-RUN"; ilColor = "#dc2626"; }
   els.interlockStatus.textContent = ilText;
   els.interlockStatus.style.color = ilColor;
 
-  /* Watchdog — FIX #9: dùng heartbeat */
+  // Watchdog đếm giây từ lần nhận gói tin cuối
+  const secAgo = Math.max(0, Math.round((Date.now() - lastStatusPacketAt) / 1000));
   if (!state.ready) {
-    els.watchdogStatus.textContent = "Chờ HB...";
+    els.watchdogStatus.textContent = "—";
     els.watchdogStatus.style.color = "#94a3b8";
+  } else if (secAgo <= 4) {
+    els.watchdogStatus.textContent = `OK (${secAgo}s)`;
+    els.watchdogStatus.style.color = "#16a34a";
+  } else if (secAgo <= 9) {
+    els.watchdogStatus.textContent = `CHẬM (${secAgo}s)`;
+    els.watchdogStatus.style.color = "#d97706";
   } else {
-    const age = getHeartbeatAge();
-    if (age === null) { els.watchdogStatus.textContent = "Chờ NTP/HB..."; els.watchdogStatus.style.color = "#94a3b8"; }
-    else if (age <= HEARTBEAT_TIMEOUT_MS) {
-      els.watchdogStatus.textContent = `OK (${Math.round(age/1000)}s)`;
-      els.watchdogStatus.style.color = "#16a34a";
-    } else {
-      els.watchdogStatus.textContent = `MẤT (${Math.round(age/1000)}s)`;
-      els.watchdogStatus.style.color = "#dc2626";
-    }
+    els.watchdogStatus.textContent = `MẤT (${secAgo}s)`;
+    els.watchdogStatus.style.color = "#dc2626";
   }
 
-  /* Mode segmented — hiển thị trạng thái thật từ ESP32 */
   els.modeSeg.querySelectorAll("button").forEach(b => {
     const m = b.getAttribute("data-mode");
     b.classList.toggle("active", m === s.current_mode);
     b.disabled = !admin || locked || offline || pending || !state.ready;
   });
 
-  /* Sliders */
   if (!draggingSlider) {
     els.startRange.value = state.settings.start_level ?? 30;
     els.stopRange.value  = state.settings.stop_level ?? 90;
@@ -1118,10 +1049,9 @@ function renderControls() {
   els.startRange.disabled = !admin || locked || offline || !state.ready;
   els.stopRange.disabled  = !admin || locked || offline || !state.ready;
 
-  /* FIX #1: E-STOP button logic */
   els.emergencyBtn.disabled = !admin || offline || !state.ready;
   if (locked) {
-    els.emergencyBtn.textContent = "🔓 RESET E-STOP (xác nhận)";
+    els.emergencyBtn.textContent = "🔓 RESET E-STOP (Xác nhận)";
     els.emergencyBtn.className = "btn-emergency unlock";
   } else {
     els.emergencyBtn.textContent = "⛔ DỪNG KHẨN CẤP";
@@ -1131,6 +1061,7 @@ function renderControls() {
   els.authBtn.textContent = admin ? "🔓 Đăng xuất" : "🔐 Đăng nhập Admin";
   els.authBtn.className = admin ? "btn admin-on" : "btn ghost";
 }
+
 function renderAlarms() {
   const unacked = state.alarms.filter(a => a.state !== "CLEARED" && !a.ackedAt);
   els.alarmCount.textContent = `${unacked.length} unacked`;
@@ -1168,8 +1099,8 @@ function renderAlarms() {
     b.addEventListener("click", () => ackAlarm(b.getAttribute("data-id")));
   });
 }
+
 function renderAlarmBanner() {
-  /* Banner hiển thị alarm chưa CLEAR */
   const actives = state.alarms.filter(a => a.state !== "CLEARED");
   if (!actives.length) { els.alarmBanner.hidden = true; stopAlarmSound(); return; }
   const hasCrit = actives.some(a => a.severity === "CRITICAL");
@@ -1185,6 +1116,7 @@ function renderAlarmBanner() {
   els.alarmBannerText.textContent = `[${first.severity}] ${first.message}${more}${ackInfo}`;
   if (hasUnacked && (hasCrit || hasHigh)) startAlarmSound();
 }
+
 function renderKPI() {
   const pct = getPct();
   const s = state.status;
@@ -1209,6 +1141,7 @@ function renderKPI() {
   els.kpiAlarms.className = "kpi " + (unacked > 0 ? "danger" : "ok");
   els.kpiAlarmsSub.textContent = unacked === 0 ? "Không có" : `${unacked} chờ`;
 }
+
 function renderLogs() {
   els.logCount.textContent = `${state.logs.length}`;
   els.logTabCount.textContent = state.logs.length;
@@ -1234,7 +1167,6 @@ function renderLogs() {
   }).join("");
 }
 
-/* Slider */
 function commitThresholds(src) {
   let start = Number(els.startRange.value);
   let stop  = Number(els.stopRange.value);
@@ -1250,6 +1182,7 @@ function commitThresholds(src) {
   if (state.settings.stop_level !== stop)  writeSetting("stop_level", stop);
   updateChart();
 }
+
 [els.startRange, els.stopRange].forEach(s => {
   const which = s === els.startRange ? "start" : "stop";
   s.addEventListener("pointerdown", () => { draggingSlider = which; });
@@ -1263,6 +1196,7 @@ function commitThresholds(src) {
   });
   s.addEventListener("change", () => { draggingSlider = null; commitThresholds(s); });
 });
+
 document.addEventListener("pointerup", () => {
   if (draggingSlider) {
     const s = draggingSlider === "start" ? els.startRange : els.stopRange;
@@ -1270,8 +1204,6 @@ document.addEventListener("pointerup", () => {
   }
 });
 
-/* AUTH LOCAL — chỉ khóa/mở quyền điều khiển trên HMI.
-   Firebase/ESP32 không dùng tài khoản người dùng. */
 async function handleLogin() {
   const v = els.pwdInput.value.trim();
   if (v !== ADMIN_PASSWORD) { els.loginErr.textContent = "Sai mật khẩu!"; return; }
@@ -1286,6 +1218,7 @@ function handleLogout() {
   state.pendingCmdSeq = 0;
   renderControls();
 }
+
 els.authBtn.addEventListener("click", () => {
   if (state.isAdmin) handleLogout();
   else { els.pwdInput.value = ""; els.loginErr.textContent = ""; els.loginModal.hidden = false; els.pwdInput.focus(); }
@@ -1294,11 +1227,9 @@ els.cancelLogin.addEventListener("click", () => els.loginModal.hidden = true);
 els.confirmLogin.addEventListener("click", handleLogin);
 els.pwdInput.addEventListener("keydown", e => { if (e.key === "Enter") handleLogin(); });
 
-/* Commands */
 els.pumpSwitch.addEventListener("click", () => {
   if (!state.isAdmin || isCommandPending()) return;
-  const next = !state.control.pump_cmd;
-  sendCommand("pump_cmd", next);
+  sendCommand("pump_cmd", !state.control.pump_cmd);
 });
 els.modeSeg.querySelectorAll("button").forEach(b => {
   b.addEventListener("click", () => {
@@ -1309,17 +1240,13 @@ els.modeSeg.querySelectorAll("button").forEach(b => {
   });
 });
 
-/* FIX #1: E-STOP 2 bước */
 els.emergencyBtn.addEventListener("click", () => {
   if (!state.isAdmin || isCommandPending()) return;
-
   if (state.status.emergency_lock) {
-    /* Đang locked → đây là nút RESET */
-    if (!confirm("RESET E-STOP?\nXác nhận hệ thống đã an toàn trước khi mở khoá.")) return;
+    if (!confirm("RESET E-STOP?\nXác nhận hệ thống an toàn trước khi mở khoá.")) return;
     sendCommand("emergency_cmd", false);
   } else {
-    /* Đang bình thường → TRIGGER E-STOP */
-    if (!confirm("KÍCH HOẠT DỪNG KHẨN CẤP?\nToàn bộ bơm sẽ dừng ngay lập tức.")) return;
+    if (!confirm("KÍCH HOẠT DỪNG KHẨN CẤP?\nBơm sẽ dừng ngay lập tức.")) return;
     sendCommand("emergency_cmd", true);
   }
 });
@@ -1331,7 +1258,6 @@ els.silenceBtn.addEventListener("click", () => {
   if (!soundEnabled) stopAlarmSound(); else startAlarmSound();
 });
 
-/* Tabs */
 document.querySelectorAll(".log-tabs button").forEach(b => {
   b.addEventListener("click", () => {
     const tab = b.getAttribute("data-tab");
@@ -1342,7 +1268,6 @@ document.querySelectorAll(".log-tabs button").forEach(b => {
   });
 });
 
-/* Chart range */
 document.querySelectorAll(".chart-toolbar button").forEach(b => {
   b.addEventListener("click", () => {
     document.querySelectorAll(".chart-toolbar button").forEach(x => x.classList.remove("active"));
@@ -1352,7 +1277,6 @@ document.querySelectorAll(".chart-toolbar button").forEach(b => {
   });
 });
 
-/* Export CSV */
 els.exportLogsBtn.addEventListener("click", () => {
   const rows = [["Timestamp", "Actor", "Action"]];
   state.logs.forEach(l => rows.push([l.timestamp||"", l.actor||"", l.action||""]));
@@ -1360,42 +1284,22 @@ els.exportLogsBtn.addEventListener("click", () => {
   const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `log_${new Date().toISOString().slice(0,19).replace(/:/g,"-")}.csv`;
+  a.download = `SCADA_Log_${new Date().toISOString().slice(0,19).replace(/:/g,"-")}.csv`;
   a.click();
 });
 
-/* Unlock audio */
 document.addEventListener("click", () => { if (!audioUnlocked) { ensureAudio(); audioUnlocked = true; } }, { once: true });
 document.addEventListener("touchstart", () => { if (!audioUnlocked) { ensureAudio(); audioUnlocked = true; } }, { once: true });
 
-/* ============ INIT ============ */
 window.addEventListener("DOMContentLoaded", () => {
-  if (typeof Chart === "undefined") {
-    console.error("Chart.js chưa load");
-    setConn("danger", "Lỗi tải Chart.js");
-  } else {
-    try { initChart(); } catch(e) { console.error(e); }
-  }
+  try { initChart(); } catch(e) { console.error(e); }
   render();
 
-  if (DEMO_MODE) {
-    els.demoNotice.hidden = false;
-    state.source = "demo";
-    state.ready = true;
-    state.status.water_level_percent = 55;
-    state.status.heartbeat = Math.floor(Date.now()/1000);
-    setConn("info", "DEMO mode");
-    render();
-  } else {
-    els.demoNotice.hidden = true;
-    state.source = "live";
-    connectFirebase().catch(err => {
-      console.error("Firebase init failed:", err);
-      setConn("danger", "Lỗi nạp Firebase");
-    });
-  }
+  connectFirebase().catch(err => {
+    console.error("Firebase init failed:", err);
+    setConn("danger", "Lỗi nạp Firebase");
+  });
 
-  /* Re-render mỗi 1s để update watchdog + pending timer */
   setInterval(() => { renderControls(); }, 1000);
 });
 </script>
