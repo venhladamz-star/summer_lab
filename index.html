@@ -518,7 +518,7 @@ input[type="range"]:disabled{opacity:.4;cursor:not-allowed}
 
 <script type="module">
 /* ================================================================
-   HMI TERMINAL v6.4 — Chỉ hiển thị + gửi command + ACK
+   HMI TERMINAL v6.5.1 — Chỉ hiển thị + gửi command + ACK
    Không có: alarm engine, metrics calc, historian sampling,
              interlock, auto logic.
    Tất cả do ESP32 làm.
@@ -578,7 +578,7 @@ let chartRangeMin = 5;
 let draggingSlider = null;
 let previewStart = null, previewStop = null;
 let settingsLock = 0;
-let heartbeats = { serverConnected: false };
+let heartbeats = { serverConnected: false, lastStatusReceivedAt: 0 };
 let soundEnabled = true;
 let alarmAudioCtx = null;
 let beepTimer = null;
@@ -618,16 +618,15 @@ const fmtTime = (d = new Date()) =>
 
 const getPct = () => clamp(state.status.water_level_percent || 0, 0, 100);
 
-/* FIX #9: dùng heartbeat thay vì last_updated */
-const getHeartbeatAge = () => {
-  const hb = Number(state.status.heartbeat) || 0;
-  if (hb < HEARTBEAT_MIN_UNIX) return null; // ESP32 chưa đồng bộ NTP
-  return Date.now() - hb * 1000;
+/* Online/offline: dùng thời điểm HMI thực sự nhận được status từ Firebase.
+   Không phụ thuộc NTP của ESP32 nên ESP32 vẫn ONLINE ngay cả khi NTP chưa sync. */
+const getStatusAge = () => {
+  if (!heartbeats.lastStatusReceivedAt) return null;
+  return Date.now() - heartbeats.lastStatusReceivedAt;
 };
 const isOffline = () => {
   if (!state.ready) return false;
-  const age = getHeartbeatAge();
-  // Do not call ESP32 offline merely because NTP has not synced yet.
+  const age = getStatusAge();
   return age !== null && age > HEARTBEAT_TIMEOUT_MS;
 };
 
@@ -701,6 +700,7 @@ async function connectFirebase() {
     if (!s.exists()) { render(); return; }
     state.status = { ...state.status, ...(s.val() || {}) };
     state.ready = true;
+    heartbeats.lastStatusReceivedAt = Date.now();
     render();
   }, err => setConn("danger", "Lỗi: " + err.code));
 
@@ -961,10 +961,10 @@ function setConn(kind, text) {
   els.connBadge.className = "conn-badge " + c;
 }
 function updateConnBadge() {
-  if (isOffline()) { setConn("danger", "ESP32 offline"); return; }
+  if (!heartbeats.serverConnected) { setConn("warn", "Mất kết nối Firebase"); return; }
   if (!state.ready) { setConn("warn", "Chờ ESP32..."); return; }
-  if (!heartbeats.serverConnected) { setConn("warn", "Mất kết nối"); return; }
-  setConn("ok", "Đã kết nối");
+  if (isOffline()) { setConn("danger", "ESP32 offline"); return; }
+  setConn("ok", "ESP32 online");
 }
 function render() {
   renderPID(); renderControls(); renderAlarms();
