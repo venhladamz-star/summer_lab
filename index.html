@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>Smart Water Station · HMI SCADA v6.9</title>
+<title>Smart Water Station · HMI SCADA v6.9.1</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -301,7 +301,7 @@ input[type="range"]:disabled{opacity:.4;cursor:not-allowed}
     <div class="logo">💧</div>
     <div>
       <h1>Trạm Cấp Nước · HMI Terminal</h1>
-      <p>ESP32 Controller v5.9 · Terminal v6.9 SCADA</p>
+      <p>ESP32 Controller v5.9.1 · Terminal v6.9.1 SCADA</p>
     </div>
   </div>
   <div class="topbar-right">
@@ -518,8 +518,7 @@ input[type="range"]:disabled{opacity:.4;cursor:not-allowed}
 
 <script type="module">
 /* ================================================================
-   HMI TERMINAL v6.9 — Chuẩn SCADA Thin-Client
-   - Bổ sung hàm pushAuditLog ghi nhật ký thao tác của Admin
+   HMI TERMINAL v6.9.1 — Chuẩn SCADA Thin-Client
    ================================================================ */
 
 const FIREBASE_CONFIG = {
@@ -744,6 +743,8 @@ async function connectFirebase() {
     arr.sort((a,b) => (b.ts||0) - (a.ts||0));
     state.logs = arr;
     renderLogs();
+  }, err => {
+    console.error("[FB][logs]", err);
   });
 
   /* LẮNG NGHE ALARMS */
@@ -755,6 +756,8 @@ async function connectFirebase() {
     state.alarms = arr;
     renderAlarms();
     renderAlarmBanner();
+  }, err => {
+    console.error("[FB][alarms]", err);
   });
 
   /* LẮNG NGHE HISTORY */
@@ -765,6 +768,8 @@ async function connectFirebase() {
     arr.sort((a,b) => (a.ts||0) - (b.ts||0));
     state.history = arr;
     updateChart();
+  }, err => {
+    console.error("[FB][history]", err);
   });
 }
 
@@ -788,12 +793,11 @@ async function sendCommand(key, value) {
   renderControls();
   lockCommands();
   
-  // Audit log thao tác lệnh
+  // Audit log sẽ ghi sau khi Firebase xác nhận ghi command thành công.
   let actMsg = "";
   if (key === "pump_cmd") actMsg = value ? "Phát lệnh BẬT máy bơm thủ công" : "Phát lệnh TẮT máy bơm thủ công";
   else if (key === "mode_cmd") actMsg = "Chuyển hệ thống sang chế độ " + value;
   else if (key === "emergency_cmd") actMsg = value ? "KÍCH HOẠT CHẾ ĐỘ DỪNG KHẨN CẤP" : "HỦY LỆNH DỪNG KHẨN CẤP";
-  if (actMsg) pushAuditLog(actMsg);
 
   const cmd = {
     [key]: value,
@@ -804,11 +808,13 @@ async function sendCommand(key, value) {
 
   try {
     await fb.update(fb.ref(fb.db, `${DB_ROOT}/control`), cmd);
+    if (actMsg) pushAuditLog(actMsg);
   } catch (e) {
     console.error("[sendCommand]", e);
     state.control[key] = prevVal;
     state.pendingCmdSeq = 0;
     renderControls();
+    pushAuditLog("LỖI gửi lệnh " + key + ": " + (e?.message || "Firebase write failed"));
   } finally {
     commandSendBusy = false;
   }
@@ -983,7 +989,7 @@ function renderPID() {
 
   const flow = Number(s.flow_lpm);
   els.pidFlowPill.textContent = `${Number.isFinite(flow) ? flow.toFixed(1) : "0.0"} L/phút`;
-  els.pidFlowPill.className = "pill" + (flow > 0 ? " ok" : "");
+  els.pidFlowPill.className = "pill" + (flow > 0 ? "ok" : "");
   els.pidSensorPill.textContent = s.ultrasonic_valid ? "LEVEL · ULTRASONIC" : "LEVEL · FLOAT";
   els.pidSensorPill.className = "pill" + (s.ultrasonic_valid ? " ok" : "");
 }
